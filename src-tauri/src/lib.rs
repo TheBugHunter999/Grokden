@@ -132,23 +132,13 @@ fn save_file(
     content: String,
 ) -> Result<(), String> {
     let path = state.resolve_workspace_path(&file_path)?;
-    let tmp_path = path.with_extension(format!(
-        "{}.tmp",
-        path.extension()
-            .map(|ext| ext.to_string_lossy())
-            .unwrap_or_default()
-    ));
-    // Use sibling .tmp file: path.tmp when no extension, path.ext.tmp when extension exists
-    let tmp_path = {
-        let mut tmp = path.clone();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| "Invalid file path".to_string())?
-            .to_string_lossy()
-            .to_string();
-        tmp.set_file_name(format!("{file_name}.tmp"));
-        tmp
-    };
+    let mut tmp_path = path.clone();
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| "Invalid file path".to_string())?
+        .to_string_lossy()
+        .to_string();
+    tmp_path.set_file_name(format!("{file_name}.tmp"));
 
     fs::write(&tmp_path, content).map_err(|e| format!("Failed to save file: {e}"))?;
     fs::rename(&tmp_path, &path).map_err(|e| {

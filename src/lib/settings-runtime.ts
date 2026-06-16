@@ -262,7 +262,10 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
   if (!settings.enableAnimations) classes.ide += " no-animations";
   if (settings.titleBarStyle === "hidden") classes.ide += " titlebar-hidden";
   else if (settings.titleBarStyle === "native") classes.ide += " titlebar-native";
-  if (effectiveSidebarSide(settings) === "right") classes.workspace += " sidebar-right";
+  if (effectiveSidebarSide(settings) === "right") {
+    classes.workspace += " sidebar-right";
+    classes.workspacePanels += " sidebar-right";
+  }
   if (settings.panelDefaultLocation === "right") classes.workspaceBody += " panel-right";
   else if (settings.panelDefaultLocation === "left") classes.workspaceBody += " panel-left";
   if (settings.iconTheme === "minimal") classes.ide += " icon-minimal";

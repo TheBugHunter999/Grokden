@@ -903,7 +903,14 @@
     folderRestricted = false;
   }
 
+  function confirmClearUnsavedTabs(): boolean {
+    if (dirtyCount === 0) return true;
+    const label = dirtyCount === 1 ? "1 unsaved tab" : `${dirtyCount} unsaved tabs`;
+    return window.confirm(`Open a new folder? ${label} will be closed without saving.`);
+  }
+
   async function applyFolderWorkspace(path: string, choice: FolderTrustChoice) {
+    if (!confirmClearUnsavedTabs()) return;
     folderRestricted = choice === "restricted";
     folderPath = path;
     await mountWorkspace(path, workspaceExcludePatterns(settings));
@@ -1083,11 +1090,21 @@
       const saved = parseSessionPayload(raw);
       if (!saved) return;
       if (saved.folderPath) {
-        folderRestricted = !isFolderTrusted(saved.folderPath);
-        folderPath = saved.folderPath;
-        await mountWorkspace(saved.folderPath, workspaceExcludePatterns(settings));
-        selectedFolderPath = saved.folderPath;
-        if (folderRestricted) terminalOpen = false;
+        const previousFolderPath = folderPath;
+        const previousSelectedFolderPath = selectedFolderPath;
+        const previousFolderRestricted = folderRestricted;
+        try {
+          folderRestricted = !isFolderTrusted(saved.folderPath);
+          folderPath = saved.folderPath;
+          await mountWorkspace(saved.folderPath, workspaceExcludePatterns(settings));
+          selectedFolderPath = saved.folderPath;
+          if (folderRestricted) terminalOpen = false;
+        } catch (mountError) {
+          folderPath = previousFolderPath;
+          selectedFolderPath = previousSelectedFolderPath;
+          folderRestricted = previousFolderRestricted;
+          throw mountError;
+        }
       }
       if (saved.tabs?.length) {
         const restored: EditorTab[] = [];
@@ -2087,6 +2104,20 @@ This is a very long debug log line that demonstrates whether the debug console w
     min-height: 0;
     min-width: 0;
     overflow: hidden;
+  }
+
+  .workspace-panels.sidebar-right {
+    flex-direction: row-reverse;
+  }
+
+  .workspace-panels.sidebar-right .sidebar {
+    border-right: none;
+    border-left: 1px solid var(--border);
+  }
+
+  .workspace-panels.sidebar-right .secondary-sidebar {
+    border-left: none;
+    border-right: 1px solid var(--border);
   }
 
   .activity-rail {
