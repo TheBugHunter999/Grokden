@@ -47,7 +47,7 @@ export class GrokTuiParser {
 
     for (let i = lines.length - 1; i >= 0; i--) {
       const event = this.matchLine(lines[i].trim());
-      if (!event) continue;
+      if (!event || event.type === "step_end") continue;
       if (event.title === this.lastTitle) return [];
       this.lastTitle = event.title;
       return [event];

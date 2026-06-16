@@ -2,6 +2,7 @@ export {
   getActivitySessions,
   getActiveActivitySession,
   getSessionByTerminalId,
+  getTerminalCompactActivity,
   createActivitySession,
   bindSessionTerminal,
   setActiveActivitySession,

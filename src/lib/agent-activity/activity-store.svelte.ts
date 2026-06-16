@@ -1,7 +1,13 @@
 import type { AgentSession, AgentStep, AgentRunStatus } from "$lib/agent-activity/types";
 import { normalizeActivityTitle } from "$lib/agent-activity/display-text";
 
+export type TerminalCompactActivity = {
+  currentTitle: string | null;
+  status: AgentRunStatus;
+};
+
 let sessions = $state<Map<string, AgentSession>>(new Map());
+let terminalCompact = $state<Map<number, TerminalCompactActivity>>(new Map());
 let activeSessionId = $state<string | null>(null);
 
 function now() {
@@ -35,6 +41,21 @@ export function getActiveActivitySession(): AgentSession | null {
 
 export function getSessionByTerminalId(terminalId: number): AgentSession | undefined {
   return [...sessions.values()].find((s) => s.terminalId === terminalId);
+}
+
+export function getTerminalCompactActivity(terminalId: number): TerminalCompactActivity | undefined {
+  return terminalCompact.get(terminalId);
+}
+
+function syncTerminalCompact(terminalId: number, currentTitle: string | null, status: AgentRunStatus): void {
+  terminalCompact = new Map(terminalCompact).set(terminalId, { currentTitle, status });
+}
+
+function removeTerminalCompact(terminalId: number): void {
+  if (!terminalCompact.has(terminalId)) return;
+  const next = new Map(terminalCompact);
+  next.delete(terminalId);
+  terminalCompact = next;
 }
 
 export function createActivitySession(label: string, terminalId: number | null = null): AgentSession {
@@ -99,25 +120,33 @@ export function pushActivityStep(
         ? "thinking"
         : "tool_running";
 
-  sessions = new Map(sessions).set(sessionId, {
+  const updated: AgentSession = {
     ...closed,
     status,
     currentTitle: title,
     updatedAt: now(),
     steps: [...closed.steps, step].slice(-40),
-  });
+  };
+  sessions = new Map(sessions).set(sessionId, updated);
+  if (updated.terminalId != null) {
+    syncTerminalCompact(updated.terminalId, title, status);
+  }
 }
 
 export function markSessionDone(sessionId: string): void {
   const session = sessions.get(sessionId);
   if (!session) return;
   const closed = completeRunningStep(session);
-  sessions = new Map(sessions).set(sessionId, {
+  const updated: AgentSession = {
     ...closed,
     status: "done",
     currentTitle: "Done",
     updatedAt: now(),
-  });
+  };
+  sessions = new Map(sessions).set(sessionId, updated);
+  if (updated.terminalId != null) {
+    syncTerminalCompact(updated.terminalId, "Done", "done");
+  }
 }
 
 export function removeActivitySession(sessionId: string): void {
@@ -137,10 +166,12 @@ export function removeSessionsByTerminalId(terminalId: number): void {
       removeActivitySession(session.id);
     }
   }
+  removeTerminalCompact(terminalId);
 }
 
 export function clearActivitySessions(): void {
   sessions = new Map();
+  terminalCompact = new Map();
   activeSessionId = null;
 }
 

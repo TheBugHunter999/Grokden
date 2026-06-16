@@ -219,7 +219,7 @@
       <img class="swarm-logo" src="/favicon.png" alt="" width="28" height="28" />
       <div>
         <h2 class="swarm-heading">Parallel Agent Swarm</h2>
-        <p class="swarm-sub">Launch Grok terminals side-by-side. Type your own prompts in each pane.</p>
+        <p class="swarm-sub">Launch Grok terminals side-by-side. Type your own prompts in each panel.</p>
       </div>
     </div>
     <div class="swarm-controls">
@@ -257,7 +257,10 @@
   </header>
 
   <div class="swarm-body">
-    <section class="agent-grid" style="--grid-cols: {gridLayout.cols}; --grid-rows: {gridLayout.rows}">
+    <section
+      class="agent-grid"
+      style="grid-template-columns: repeat({gridLayout.cols}, minmax(0, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
+    >
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
           <div class="agent-cell empty-slot" class:span-cols={shouldSpanAgentCell(slotCount, i)}>
@@ -278,7 +281,9 @@
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
                 <span class="cell-title" title={agent.label}>{agent.label}</span>
-                <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
+                <div class="cell-activity-slot">
+                  <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
+                </div>
               </div>
               <div class="cell-head-actions">
                 <span class="cell-status" class:running={agent.status === "running"}>
@@ -290,17 +295,19 @@
             </div>
             <div class="cell-terminal">
               {#if agent.status !== "idle"}
-                <Terminal
-                  {settings}
-                  {cwd}
-                  sessionActive={true}
-                  visible={true}
-                  compact={true}
-                  enableHelper={false}
-                  injectToken={agent.injectToken}
-                  injectCommand={grokCommand || buildAgentGrokCommand(settings)}
-                  onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
-                />
+                {#key `${agent.id}:${agent.injectToken}`}
+                  <Terminal
+                    {settings}
+                    {cwd}
+                    sessionActive={true}
+                    visible={true}
+                    compact={true}
+                    enableHelper={false}
+                    injectToken={agent.injectToken}
+                    injectCommand={grokCommand || buildAgentGrokCommand(settings)}
+                    onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
+                  />
+                {/key}
               {:else}
                 <div class="cell-idle">Press Launch or ↻ to start this agent</div>
               {/if}
@@ -499,10 +506,9 @@
   .agent-grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(var(--grid-cols, 2), 1fr);
-    grid-template-rows: repeat(var(--grid-rows, 2), 1fr);
     gap: 1px;
     min-width: 0;
+    min-height: 0;
     background: var(--border);
     overflow: hidden;
   }
@@ -525,12 +531,14 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 8px;
+    height: 28px;
+    padding: 0 8px;
     background: var(--panel-solid);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-width: 0;
     overflow: hidden;
+    box-sizing: border-box;
   }
 
   .cell-head-main {
@@ -572,11 +580,18 @@
     font-size: 11px;
     font-weight: 500;
     color: var(--text);
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .cell-activity-slot {
+    width: 140px;
+    flex-shrink: 0;
+    min-width: 0;
+    overflow: hidden;
   }
   .cell-status { font-size: 9px; color: var(--text-mute); flex-shrink: 0; white-space: nowrap; }
   .cell-status.running { color: var(--success); }

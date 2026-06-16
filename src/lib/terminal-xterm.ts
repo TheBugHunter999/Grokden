@@ -63,3 +63,30 @@ export function shouldNotifyPtyResize(
   if (options?.altScreenActive) return false;
   return true;
 }
+
+/** Never call fitAddon.fit() while Grok TUI alt-screen is active — force does not bypass. */
+export function shouldDeferFitForAltScreen(altScreenActive: boolean): boolean {
+  return altScreenActive;
+}
+
+export function proposeFitDims(fitAddon: {
+  proposeDimensions(): { cols: number; rows: number } | undefined;
+}): TermDims | null {
+  const raw = fitAddon.proposeDimensions();
+  return clampDims(raw?.cols ?? 0, raw?.rows ?? 0);
+}
+
+/** Wait until the host has non-zero layout (grid/flex may settle over a few frames). */
+export async function waitForHostLayout(
+  el: HTMLElement,
+  opts?: { maxFrames?: number; minW?: number; minH?: number },
+): Promise<void> {
+  const maxFrames = opts?.maxFrames ?? 12;
+  const minW = opts?.minW ?? 2;
+  const minH = opts?.minH ?? 2;
+  for (let i = 0; i < maxFrames; i++) {
+    const { clientWidth, clientHeight } = el;
+    if (clientWidth >= minW && clientHeight >= minH) return;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+}

@@ -1,30 +1,37 @@
 <script lang="ts">
-  import { getSessionByTerminalId } from "$lib/agent-activity/activity-store";
+  import { getTerminalCompactActivity } from "$lib/agent-activity/activity-store";
 
   type Props = { terminalId: number | null };
   let { terminalId }: Props = $props();
 
-  const session = $derived(terminalId != null ? getSessionByTerminalId(terminalId) : undefined);
+  const compact = $derived(
+    terminalId != null ? getTerminalCompactActivity(terminalId) : undefined,
+  );
 </script>
 
-{#if session?.currentTitle}
-  <span class="compact-activity" class:approval={session.status === "awaiting_approval"} title={session.currentTitle}>
-    <span class="pip" class:live={session.status !== "done"}></span>
-    <span class="label">{session.currentTitle}</span>
-  </span>
-{/if}
+<span
+  class="compact-activity"
+  class:approval={compact?.status === "awaiting_approval"}
+  class:empty={!compact?.currentTitle}
+  title={compact?.currentTitle ?? ""}
+>
+  <span class="pip" class:live={compact && compact.status !== "done"}></span>
+  <span class="label">{compact?.currentTitle ?? ""}</span>
+</span>
 
 <style>
   .compact-activity {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    max-width: min(140px, 100%);
+    width: 100%;
     min-width: 0;
-    flex: 1 1 0;
     font-size: 10px;
     color: var(--text-mute);
     overflow: hidden;
+  }
+  .compact-activity.empty {
+    visibility: hidden;
   }
   .compact-activity.approval { color: var(--warn); }
   .pip {

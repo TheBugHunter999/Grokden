@@ -11,6 +11,8 @@ import {
   dimsChanged,
   hostSizeChanged,
   parseAltScreenActive,
+  proposeFitDims,
+  shouldDeferFitForAltScreen,
   shouldNotifyPtyResize,
   type TermDims,
 } from "./terminal-xterm";
@@ -118,6 +120,14 @@ function stressAltScreenStability(): StressResult[] {
     assert(
       "pty resize blocked during alt",
       !shouldNotifyPtyResize(cached, { cols: 100, rows: 30 }, { altScreenActive: true }),
+    ),
+  );
+  results.push(assert("fit deferred during alt", shouldDeferFitForAltScreen(true)));
+  results.push(assert("fit allowed outside alt", !shouldDeferFitForAltScreen(false)));
+  results.push(
+    assert(
+      "proposeFitDims clamps",
+      proposeFitDims({ proposeDimensions: () => ({ cols: 80.9, rows: 24.1 }) })?.cols === 80,
     ),
   );
   return results;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
   import { FitAddon } from "@xterm/addon-fit";
   import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -21,12 +21,14 @@
   import { appendToBuffer, consumeTerminalInput } from "$lib/terminal-input";
   import TerminalHelper from "$lib/TerminalHelper.svelte";
   import {
-    clampDims,
     debounce,
     DEFAULT_RESIZE_DEBOUNCE_MS,
     hostSizeChanged,
     parseAltScreenActive,
+    proposeFitDims,
+    shouldDeferFitForAltScreen,
     shouldNotifyPtyResize,
+    waitForHostLayout,
     type TermDims,
   } from "$lib/terminal-xterm";
   let {
@@ -68,6 +70,8 @@
   let lastHostW = 0;
   let lastHostH = 0;
   let altScreenActive = false;
+  let pendingFitAfterAlt = false;
+  let spawnInFlight = false;
 
   let bellEnabled = false;
   let suggestions = $derived(
@@ -159,6 +163,11 @@
     const { clientWidth, clientHeight } = hostEl;
     if (clientWidth < 2 || clientHeight < 2) return;
 
+    if (shouldDeferFitForAltScreen(altScreenActive)) {
+      pendingFitAfterAlt = true;
+      return;
+    }
+
     if (
       !force &&
       !hostSizeChanged(lastHostW, lastHostH, clientWidth, clientHeight)
@@ -171,8 +180,7 @@
 
     try {
       fitAddon.fit();
-      const raw = fitAddon.proposeDimensions();
-      const dims = clampDims(raw?.cols ?? 0, raw?.rows ?? 0);
+      const dims = proposeFitDims(fitAddon);
       if (!dims) return;
       if (
         !shouldNotifyPtyResize(lastPtyDims, dims, { altScreenActive }) &&
@@ -182,6 +190,7 @@
       }
 
       lastPtyDims = dims;
+      pendingFitAfterAlt = false;
       await resizeTerminal({
         id: terminalId,
         cols: dims.cols,
@@ -189,6 +198,14 @@
       });
     } catch (error) {
       console.error("Terminal resize failed:", error);
+    }
+  }
+
+  function handleAltScreenTransition(chunk: string) {
+    const prevAlt = altScreenActive;
+    altScreenActive = parseAltScreenActive(chunk, altScreenActive);
+    if (prevAlt && !altScreenActive) {
+      void fitAndResize(true);
     }
   }
 
@@ -251,8 +268,9 @@
   }
 
   async function spawnSession() {
-    if (!term || !sessionActive || terminalId) return;
+    if (!term || !sessionActive || terminalId || spawnInFlight) return;
 
+    spawnInFlight = true;
     const generation = ++spawnGeneration;
     const shell = settings.terminalShellPath.trim() || null;
 
@@ -268,18 +286,22 @@
       lastHostW = 0;
       lastHostH = 0;
       altScreenActive = false;
+      pendingFitAfterAlt = false;
       unregisterOutput = registerTerminalOutput(id, (data) => {
         if (terminalId === id && term) {
-          altScreenActive = parseAltScreenActive(data, altScreenActive);
+          handleAltScreenTransition(data);
           term.write(data);
         }
       });
       onSpawned?.(id);
 
+      if (hostEl) await waitForHostLayout(hostEl);
       await fitAndResize(true);
     } catch (error) {
       console.error("Terminal spawn failed:", error);
       term?.writeln("\r\n\x1b[31mFailed to spawn terminal.\x1b[0m");
+    } finally {
+      spawnInFlight = false;
     }
   }
 
@@ -292,6 +314,7 @@
     lastHostW = 0;
     lastHostH = 0;
     altScreenActive = false;
+    pendingFitAfterAlt = false;
     await spawnSession();
   }
 
@@ -419,11 +442,18 @@
   });
 
   $effect(() => {
-    if (!mounted || !term || !visible || !terminalId) return;
-    const run = () => void fitAndResize(true);
-    requestAnimationFrame(() => requestAnimationFrame(run));
+    if (!mounted || !term || !visible || !terminalId || !hostEl) return;
+    let cancelled = false;
+    const run = async () => {
+      await waitForHostLayout(hostEl!);
+      if (!cancelled) await fitAndResize(true);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(() => void run()));
     const t1 = setTimeout(() => scheduleFitAndResize(), 80);
-    return () => clearTimeout(t1);
+    return () => {
+      cancelled = true;
+      clearTimeout(t1);
+    };
   });
 
   let lastInjectToken = 0;
@@ -455,6 +485,8 @@
 
     injectInFlight = true;
     try {
+      if (hostEl) await waitForHostLayout(hostEl);
+      await fitAndResize(true);
       if (!(await runInjectedCommand(cmd, id))) return;
 
       const trimmed = prompt?.trim();
@@ -483,8 +515,8 @@
 
   $effect(() => {
     const token = injectToken;
-    const cmd = injectCommand?.trim();
-    const prompt = injectPrompt;
+    const cmd = untrack(() => injectCommand?.trim());
+    const prompt = untrack(() => injectPrompt);
     if (!token || token === lastInjectToken || !cmd || !sessionActive) return;
     if (injectInFlight) {
       pendingInjectToken = Math.max(pendingInjectToken, token);
@@ -589,10 +621,6 @@
 
   .terminal-host.has-helper {
     padding-bottom: 100px;
-  }
-
-  .terminal-wrap.compact :global(.terminal-host .xterm) {
-    font-size: 11px;
   }
 
   :global(.terminal-host .xterm) {
