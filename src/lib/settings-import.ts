@@ -17,16 +17,18 @@ export type EditorImportResult = {
 
 const THEME_MAP: Record<string, string> = {
   "Default Dark Modern": "grokden-dark",
-  "Default Dark+": "one-dark",
-  "Visual Studio Dark": "midnight",
-  "Dark+ (default dark)": "one-dark",
+  "Default Dark+": "charcoal",
+  "Visual Studio Dark": "charcoal",
+  "Dark+ (default dark)": "charcoal",
   "Default Light Modern": "light",
   "Default Light+": "light",
-  Dracula: "dracula",
-  "Dracula Soft": "dracula",
-  Nord: "nord",
-  "Gruvbox Dark Hard": "gruvbox-dark",
-  "Gruvbox Dark Medium": "gruvbox-dark",
+  Dracula: "mocha",
+  "Dracula Soft": "mocha",
+  Nord: "tokyo-night",
+  "Gruvbox Dark Hard": "warm-dark",
+  "Gruvbox Dark Medium": "warm-dark",
+  "Tokyo Night": "tokyo-night",
+  "Catppuccin Mocha": "mocha",
 };
 
 const FONT_MAP: Record<string, AppSettings["fontFamily"]> = {

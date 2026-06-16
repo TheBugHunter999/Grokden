@@ -30,6 +30,11 @@
     "allow-telemetry-clear",
     "allow-app-ready",
     "allow-prepare-wizard-window",
-    "allow-transition-to-workspace"
+    "allow-transition-to-workspace",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging"
   ]
 }

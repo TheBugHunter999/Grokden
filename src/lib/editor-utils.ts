@@ -206,41 +206,29 @@ export const THEMES: Record<string, ThemePalette> = {
     hover: "rgba(255,255,255,0.05)", danger: "#e06c75", warn: "#e5c07b", success: "#98c379",
     onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.06)",
   },
-  midnight: {
-    bg: "#0a0e18", panel: "#0f1524", panelSolid: "#111827", editorBg: "#0c111c",
-    border: "rgba(147,175,220,0.12)", text: "#d8e0f0", textDim: "#a8b4cc", textMute: "#6b7894",
-    hover: "rgba(130,170,255,0.07)", danger: "#f07178", warn: "#ebcb8b", success: "#a3be8c",
-    onAccent: "#ffffff", chipBg: "rgba(130,170,255,0.08)",
+  charcoal: {
+    bg: "#121214", panel: "#1a1a1e", panelSolid: "#1e1e22", editorBg: "#141416",
+    border: "rgba(255,255,255,0.07)", text: "#e8e8ec", textDim: "#b8b8c0", textMute: "#78788a",
+    hover: "rgba(255,255,255,0.04)", danger: "#e06c75", warn: "#d4a857", success: "#8fbd7a",
+    onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.05)",
   },
-  nebula: {
-    bg: "#0d0a12", panel: "#15101c", panelSolid: "#181220", editorBg: "#110e16",
-    border: "rgba(200,160,220,0.1)", text: "#ece4f0", textDim: "#c4b4cc", textMute: "#8a7a94",
-    hover: "rgba(180,120,200,0.08)", danger: "#ff6e8a", warn: "#f0c070", success: "#7fd4a0",
-    onAccent: "#ffffff", chipBg: "rgba(200,140,220,0.08)",
+  "tokyo-night": {
+    bg: "#1a1b26", panel: "#1f2335", panelSolid: "#24283b", editorBg: "#16161e",
+    border: "rgba(122,162,247,0.1)", text: "#c0caf5", textDim: "#a9b1d6", textMute: "#565f89",
+    hover: "rgba(122,162,247,0.06)", danger: "#f7768e", warn: "#e0af68", success: "#9ece6a",
+    onAccent: "#1a1b26", chipBg: "rgba(122,162,247,0.07)",
   },
-  dracula: {
-    bg: "#282a36", panel: "#2e3040", panelSolid: "#313341", editorBg: "#262833",
-    border: "rgba(255,255,255,0.09)", text: "#f8f8f2", textDim: "#d0d0dc", textMute: "#9aa0b8",
-    hover: "rgba(255,255,255,0.06)", danger: "#ff5555", warn: "#f1fa8c", success: "#50fa7b",
-    onAccent: "#282a36", chipBg: "rgba(255,255,255,0.07)",
+  mocha: {
+    bg: "#1e1e2e", panel: "#252536", panelSolid: "#2a2a3c", editorBg: "#181825",
+    border: "rgba(205,214,244,0.08)", text: "#cdd6f4", textDim: "#bac2de", textMute: "#6c7086",
+    hover: "rgba(205,214,244,0.05)", danger: "#f38ba8", warn: "#f9e2af", success: "#a6e3a1",
+    onAccent: "#1e1e2e", chipBg: "rgba(205,214,244,0.06)",
   },
-  "gruvbox-dark": {
+  "warm-dark": {
     bg: "#1d2021", panel: "#252829", panelSolid: "#282b2c", editorBg: "#1a1c1d",
     border: "rgba(235,219,178,0.1)", text: "#ebdbb2", textDim: "#d5c4a1", textMute: "#928374",
     hover: "rgba(235,219,178,0.06)", danger: "#fb4934", warn: "#fabd2f", success: "#b8bb26",
     onAccent: "#1d2021", chipBg: "rgba(235,219,178,0.07)",
-  },
-  nord: {
-    bg: "#2e3440", panel: "#343b49", panelSolid: "#3b4252", editorBg: "#2a3040",
-    border: "rgba(216,222,233,0.1)", text: "#eceff4", textDim: "#d8dee9", textMute: "#9aa3b8",
-    hover: "rgba(216,222,233,0.06)", danger: "#bf616a", warn: "#ebcb8b", success: "#a3be8c",
-    onAccent: "#2e3440", chipBg: "rgba(216,222,233,0.07)",
-  },
-  "one-dark": {
-    bg: "#282c34", panel: "#2e323a", panelSolid: "#31353f", editorBg: "#252830",
-    border: "rgba(171,178,191,0.1)", text: "#abb2bf", textDim: "#9da5b4", textMute: "#6b7280",
-    hover: "rgba(171,178,191,0.06)", danger: "#e06c75", warn: "#e5c07b", success: "#98c379",
-    onAccent: "#ffffff", chipBg: "rgba(171,178,191,0.07)",
   },
   light: {
     bg: "#eceef2", panel: "#f6f7fa", panelSolid: "#ffffff", editorBg: "#fafbfc",
@@ -250,12 +238,32 @@ export const THEMES: Record<string, ThemePalette> = {
   },
 };
 
+const LEGACY_THEME_IDS = new Set([
+  "midnight", "nebula", "dracula", "nord", "one-dark", "gruvbox-dark",
+]);
+
+const THEME_MIGRATION: Record<string, string> = {
+  midnight: "charcoal",
+  nebula: "grokden-dark",
+  dracula: "mocha",
+  nord: "tokyo-night",
+  "one-dark": "charcoal",
+  "gruvbox-dark": "warm-dark",
+};
+
 export const ACCENTS: Record<string, [string, string]> = {
-  violet: ["#8b7cf8", "#b04fd1"],
-  azure: ["#3aa0ff", "#4fd1d9"],
-  emerald: ["#3ddc84", "#2f8fd6"],
-  amber: ["#f0a35c", "#ff6a3d"],
-  rose: ["#ff6a9a", "#b04fd1"],
+  slate: ["#5b8def", "#4a7fd4"],
+  violet: ["#8b7cf8", "#9b8cf0"],
+  teal: ["#2dd4bf", "#14b8a6"],
+};
+
+const LEGACY_ACCENT_IDS = new Set(["azure", "emerald", "amber", "rose"]);
+
+const ACCENT_MIGRATION: Record<string, string> = {
+  azure: "slate",
+  emerald: "teal",
+  amber: "slate",
+  rose: "violet",
 };
 
 export const FONT_STACKS: Record<string, string> = {
@@ -266,22 +274,18 @@ export const FONT_STACKS: Record<string, string> = {
 };
 
 export const themeList = [
-  { id: "grokden-dark", label: "Grokden Dark", bg: "#13131a", accent: "#8b7cf8" },
-  { id: "midnight", label: "Midnight", bg: "#111827", accent: "#5b9cf5" },
-  { id: "nebula", label: "Nebula", bg: "#181220", accent: "#b87fd4" },
-  { id: "dracula", label: "Dracula", bg: "#313341", accent: "#bd93f9" },
-  { id: "gruvbox-dark", label: "Gruvbox Dark", bg: "#282b2c", accent: "#fe8019" },
-  { id: "nord", label: "Nord", bg: "#3b4252", accent: "#88c0d0" },
-  { id: "one-dark", label: "One Dark", bg: "#31353f", accent: "#61afef" },
-  { id: "light", label: "Grokden Light", bg: "#ffffff", accent: "#5b4cdb" },
+  { id: "grokden-dark", label: "Grokden Dark", bg: "#13131a", text: "#b4b4c4", panel: "#111116" },
+  { id: "charcoal", label: "Charcoal", bg: "#1e1e22", text: "#b8b8c0", panel: "#1a1a1e" },
+  { id: "tokyo-night", label: "Tokyo Night", bg: "#24283b", text: "#a9b1d6", panel: "#1f2335" },
+  { id: "mocha", label: "Mocha", bg: "#2a2a3c", text: "#bac2de", panel: "#252536" },
+  { id: "warm-dark", label: "Warm Dark", bg: "#282b2c", text: "#d5c4a1", panel: "#252829" },
+  { id: "light", label: "Grokden Light", bg: "#ffffff", text: "#3d4455", panel: "#f6f7fa" },
 ];
 
 export const accentList = [
-  { id: "violet", label: "Violet", a: "#8b7cf8", b: "#b04fd1" },
-  { id: "azure", label: "Azure", a: "#3aa0ff", b: "#4fd1d9" },
-  { id: "emerald", label: "Emerald", a: "#3ddc84", b: "#2f8fd6" },
-  { id: "amber", label: "Amber", a: "#f0a35c", b: "#ff6a3d" },
-  { id: "rose", label: "Rose", a: "#ff6a9a", b: "#b04fd1" },
+  { id: "slate", label: "Slate Blue", a: "#5b8def", b: "#4a7fd4" },
+  { id: "violet", label: "Violet", a: "#8b7cf8", b: "#9b8cf0" },
+  { id: "teal", label: "Teal", a: "#2dd4bf", b: "#14b8a6" },
 ];
 
 export const settingsNav = [
@@ -375,7 +379,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   wordWrap: false,
   autoSave: false,
   confirmClose: false,
-  showTerminalOnStart: true,
+  showTerminalOnStart: false,
   startupBehavior: "restore",
   autoCheckUpdates: true,
   allowPrereleaseUpdates: false,
@@ -518,9 +522,6 @@ export function hexToRgba(hex: string, alpha: number): string {
 
 export function buildThemeStyle(settings: AppSettings): string {
   const t = THEMES[settings.theme] ?? THEMES["grokden-dark"];
-  const ac = ACCENTS[settings.accent] ?? ACCENTS.violet;
-  const softAlpha = t.isLight ? 0.14 : 0.12;
-  const midAlpha = t.isLight ? 0.26 : 0.22;
   return [
     `--bg:${t.bg}`,
     `--panel:${t.panel}`,
@@ -536,14 +537,14 @@ export function buildThemeStyle(settings: AppSettings): string {
     `--warn:${t.warn}`,
     `--warn-soft:${hexToRgba(t.warn, t.isLight ? 0.12 : 0.14)}`,
     `--success:${t.success}`,
-    `--on-accent:${t.onAccent}`,
+    `--on-accent:${t.panelSolid}`,
     `--chip-bg:${t.chipBg}`,
-    `--accent:${ac[0]}`,
-    `--accent2:${ac[1]}`,
-    `--accent-soft:${hexToRgba(ac[0], softAlpha)}`,
-    `--accent-mid:${hexToRgba(ac[0], midAlpha)}`,
-    `--accent-strong:${hexToRgba(ac[0], 0.45)}`,
-    `--accent-grad:linear-gradient(135deg, ${ac[0]}, ${ac[1]})`,
+    `--accent:${t.textDim}`,
+    `--accent2:${t.text}`,
+    `--accent-soft:${t.hover}`,
+    `--accent-mid:${t.border}`,
+    `--accent-strong:${t.border}`,
+    `--accent-grad:none`,
     `--efs:${settings.fontSize}px`,
     `--elh:${settings.lineHeight}px`,
     `--etab:${settings.tabSize}`,
@@ -558,6 +559,14 @@ export function loadSettings(): AppSettings {
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;
         if (parsed.theme === "aether-dark") parsed.theme = "grokden-dark";
+        if (parsed.theme && LEGACY_THEME_IDS.has(parsed.theme)) {
+          parsed.theme = THEME_MIGRATION[parsed.theme] ?? "grokden-dark";
+        }
+        if (parsed.theme && !THEMES[parsed.theme]) parsed.theme = "grokden-dark";
+        if (parsed.accent && LEGACY_ACCENT_IDS.has(parsed.accent)) {
+          parsed.accent = ACCENT_MIGRATION[parsed.accent] ?? "violet";
+        }
+        if (parsed.accent && !ACCENTS[parsed.accent]) parsed.accent = "violet";
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
     }

@@ -97,6 +97,10 @@
   import SourceControl from "$lib/SourceControl.svelte";
   import Terminal from "$lib/Terminal.svelte";
   import ParallelAgents from "$lib/ParallelAgents.svelte";
+  import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
+  import WindowChrome from "$lib/WindowChrome.svelte";
+  import { attachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
+  import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
   import { type MissionGoal, type ParallelAgent } from "$lib/agent-grid";
   import {
     GROK_CLI_INSTALL_UNIX,
@@ -165,6 +169,9 @@
   let grokCliAvailable = $state<boolean | null>(null);
   let grokCliChecking = $state(false);
   let grokInjectToken = $state(0);
+  let grokActivityDetach: (() => void) | null = null;
+  let mainTerminalId = $state<number | null>(null);
+  let secondaryPanelTab = $state<"outline" | "activity">("outline");
   let autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let gitFetchTimer: ReturnType<typeof setInterval> | undefined;
   let terminalHeight = $state(settings.panelDefaultSize);
@@ -871,15 +878,39 @@
       return;
     }
     grokLaunching = true;
+    terminalOpen = true;
+    secondarySidebarOpen = true;
+    secondaryPanelTab = "activity";
+    grokActivityDetach?.();
+    const sessionId = startActivitySession("Grok CLI");
+    if (mainTerminalId != null) {
+      grokActivityDetach = attachParser(sessionId, mainTerminalId);
+      grokActivityPendingSessionId = null;
+    } else {
+      grokActivityPendingSessionId = sessionId;
+    }
     selectBottomPanelTab("terminal");
     grokInjectToken += 1;
     setTimeout(() => (grokLaunching = false), 600);
   }
 
+  let grokActivityPendingSessionId = $state<string | null>(null);
+
+  function handleMainTerminalSpawned(terminalId: number) {
+    mainTerminalId = terminalId;
+    if (!grokActivityPendingSessionId) return;
+    grokActivityDetach = attachParser(grokActivityPendingSessionId, terminalId);
+    grokActivityPendingSessionId = null;
+  }
+
+  const activeAgentSession = $derived(getActiveActivitySession());
+
   function openAgentSwarm() {
     agentSwarmOpen = true;
     view = "agents";
     sidebarCollapsed = true;
+    secondarySidebarOpen = true;
+    secondaryPanelTab = "activity";
   }
 
   function closeAgentSwarm() {
@@ -1209,16 +1240,16 @@
   style={rootStyle}
   data-ui-lang={settings.uiLanguage}
   data-theme={settings.theme}
-  data-accent={settings.accent}
 >
-  <header class="topbar">
-    <div class="topbar-left">
-      <span class="logo-mark" aria-hidden="true">GD</span>
+  <WindowChrome />
+  <header class="topbar" data-tauri-drag-region>
+    <div class="topbar-left" data-tauri-drag-region>
+      <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
       <span class="version-pill">v0.1.0</span>
     </div>
 
-    <div class="command-hint">
+    <div class="command-hint" data-tauri-drag-region>
       <span class="command-text">{folderName || "No folder open"}</span>
       {#if grokCliAvailable === false}
         <span class="command-badge grok-cli-missing" transition:fade title="Grok CLI was not found on PATH">
@@ -1245,12 +1276,6 @@
 
     <div class="topbar-actions">
       <button type="button" class="save-btn" onclick={saveActiveTab} disabled={!activeTab || !isDirty(activeTab)} title="Save (Ctrl+S)">Save</button>
-      <button type="button" class="launch-btn swarm-btn" class:active={agentSwarmOpen} onclick={openAgentSwarm}>
-        Parallel Agents
-      </button>
-      <button type="button" class="launch-btn" class:launching={grokLaunching} onclick={launchGrokCli}>
-        Launch Grok CLI
-      </button>
     </div>
   </header>
 
@@ -1278,9 +1303,25 @@
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M4.5 8l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="rail-hint">Terminal</span>
       </button>
-      <button type="button" class="rail-btn" class:active={secondarySidebarOpen} aria-label="Secondary sidebar" onclick={() => (secondarySidebarOpen = !secondarySidebarOpen)}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2.5" width="10" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10 2.5v11" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
-        <span class="rail-hint">Outline</span>
+      <button
+        type="button"
+        class="rail-btn"
+        class:active={secondarySidebarOpen}
+        aria-label="Agent activity"
+        onclick={() => {
+          if (secondarySidebarOpen && secondaryPanelTab === "activity") {
+            secondarySidebarOpen = false;
+          } else {
+            secondarySidebarOpen = true;
+            secondaryPanelTab = "activity";
+          }
+        }}
+      >
+        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h10" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/><circle cx="12.5" cy="8" r="1.5" fill="currentColor"/></svg>
+        {#if activeAgentSession && isSessionLive(activeAgentSession)}
+          <span class="rail-live" aria-hidden="true"></span>
+        {/if}
+        <span class="rail-hint">Activity</span>
       </button>
       <button type="button" class="rail-btn" class:active={settingsOpen} aria-label="Settings" onclick={openSettings}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4.1 4.1l1.4 1.4M10.5 10.5l1.4 1.4M4.1 11.9l1.4-1.4M10.5 5.5l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
@@ -1506,7 +1547,7 @@
         </div>
       {:else}
         <div class="editor-placeholder" in:fade>
-          <div class="welcome-mark" aria-hidden="true">GD</div>
+          <img class="welcome-logo" src="/favicon.png" alt="" width="56" height="56" />
           <h1 class="welcome-title">Grokden</h1>
           <p class="welcome-sub">A focused desktop IDE for building with AI.</p>
           {#if grokCliAvailable === false}
@@ -1556,26 +1597,38 @@
     {#if secondarySidebarOpen && !settings.zenMode}
       <aside class="secondary-sidebar" transition:slide={settings.enableAnimations ? slideX : { duration: 0 }}>
         <div class="secondary-header">
-          <span>Outline</span>
+          <div class="secondary-tabs" role="tablist" aria-label="Secondary panel">
+            <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "outline"} aria-selected={secondaryPanelTab === "outline"} onclick={() => (secondaryPanelTab = "outline")}>Outline</button>
+            <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "activity"} aria-selected={secondaryPanelTab === "activity"} onclick={() => (secondaryPanelTab = "activity")}>
+              Activity
+              {#if activeAgentSession && isSessionLive(activeAgentSession)}
+                <span class="activity-live-dot" aria-hidden="true"></span>
+              {/if}
+            </button>
+          </div>
           <button type="button" class="secondary-close" aria-label="Hide secondary sidebar" onclick={() => (secondarySidebarOpen = false)}>Close</button>
         </div>
-        <ul class="outline-list">
-          {#if !activeTab}
-            <li class="outline-empty">Open a file to see its outline.</li>
-          {:else if outlineSymbols.length === 0}
-            <li class="outline-empty">No symbols found in {activeTab.name}.</li>
-          {:else}
-            {#each outlineSymbols as symbol (symbol.name + ":" + symbol.line)}
-              <li>
-                <button type="button" class="outline-item" onclick={() => { cursorLine = symbol.line; cursorCol = 1; }}>
-                  <span class="outline-kind">{symbol.kind}</span>
-                  <span class="outline-name">{symbol.name}</span>
-                  <span class="outline-line">:{symbol.line}</span>
-                </button>
-              </li>
-            {/each}
-          {/if}
-        </ul>
+        {#if secondaryPanelTab === "outline"}
+          <ul class="outline-list">
+            {#if !activeTab}
+              <li class="outline-empty">Open a file to see its outline.</li>
+            {:else if outlineSymbols.length === 0}
+              <li class="outline-empty">No symbols found in {activeTab.name}.</li>
+            {:else}
+              {#each outlineSymbols as symbol (symbol.name + ":" + symbol.line)}
+                <li>
+                  <button type="button" class="outline-item" onclick={() => { cursorLine = symbol.line; cursorCol = 1; }}>
+                    <span class="outline-kind">{symbol.kind}</span>
+                    <span class="outline-name">{symbol.name}</span>
+                    <span class="outline-line">:{symbol.line}</span>
+                  </button>
+                </li>
+              {/each}
+            {/if}
+          </ul>
+        {:else}
+          <AgentActivityFeed />
+        {/if}
       </aside>
     {/if}
     </div>
@@ -1613,6 +1666,7 @@
               visible={bottomPanelTab === "terminal"}
               injectToken={grokInjectToken}
               injectCommand={grokInjectCommand}
+              onSpawned={handleMainTerminalSpawned}
             />
           </div>
           <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "output"}>
@@ -1802,28 +1856,29 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 40px;
+    height: 36px;
     padding: 0 14px;
     background: var(--panel-solid);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    -webkit-app-region: drag;
+    app-region: drag;
   }
 
-  .topbar-left { display: flex; align-items: center; gap: 10px; }
-
-  .logo-mark {
+  .topbar-left {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .logo-img {
     width: 22px;
     height: 22px;
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--on-accent);
-    background: var(--accent);
-    border-radius: 4px;
-    opacity: 0.92;
+    border-radius: 5px;
+    flex-shrink: 0;
+    opacity: 0.95;
   }
 
   .app-name { font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: var(--text); }
@@ -1865,7 +1920,13 @@ This is a very long debug log line that demonstrates whether the debug console w
     box-shadow: 0 0 0 1px var(--border);
   }
 
-  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 
   .save-btn,
   .launch-btn {
@@ -1879,17 +1940,29 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s, opacity 0.12s;
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
   }
   .save-btn:hover:not(:disabled),
   .launch-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
   .save-btn:disabled,
   .launch-btn:disabled { opacity: 0.35; cursor: default; }
-  .launch-btn { color: var(--accent); }
+  .launch-btn { color: var(--text-dim); }
   .launch-btn.launching { opacity: 0.5; cursor: wait; }
   .launch-btn.swarm-btn.active {
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-mid);
+    background: var(--hover);
+    border: 1px solid var(--border);
     border-radius: 4px;
+  }
+
+  .rail-live {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
   }
 
   .workspace { display: flex; flex: 1; min-height: 0; }
@@ -2231,9 +2304,9 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
   .tab-close::before { transform: rotate(45deg); }
   .tab-close::after { transform: rotate(-45deg); }
-  .tab-close:hover { background: var(--danger-soft); }
+  .tab-close:hover { background: var(--hover); }
   .tab-close:hover::before,
-  .tab-close:hover::after { background: var(--danger); }
+  .tab-close:hover::after { background: var(--text-dim); }
 
   .save-error {
     padding: 7px 14px;
@@ -2268,19 +2341,11 @@ This is a very long debug log line that demonstrates whether the debug console w
     color: var(--text-mute);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
-  .welcome-mark {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .welcome-logo {
     width: 56px;
     height: 56px;
-    font-size: 18px;
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--on-accent);
-    background: var(--accent);
-    border-radius: 10px;
-    opacity: 0.9;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   }
   .welcome-title {
     margin: 12px 0 0;
@@ -2797,7 +2862,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.titlebar-native .open-folder-btn,
   .ide.titlebar-native .save-btn,
   .ide.titlebar-native .launch-btn { -webkit-app-region: no-drag; }
-  .ide.titlebar-native .logo-mark { display: none; }
+  .ide.titlebar-native .logo-img { display: none; }
   .ide.titlebar-native .app-name { font-size: 12px; font-weight: 400; color: var(--text-dim); }
   .ide.zen-mode .topbar { opacity: 0.6; }
   .ide.centered-layout .editor-area { max-width: 960px; margin: 0 auto; width: 100%; }
@@ -2842,12 +2907,55 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 8px 8px 10px 10px;
+    flex-shrink: 0;
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.04em;
     color: var(--text-mute);
     border-bottom: 1px solid var(--border);
+  }
+
+  .secondary-tabs {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .secondary-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    background: transparent;
+    color: var(--text-mute);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+  }
+
+  .secondary-tab.active {
+    color: var(--text);
+    background: var(--chip-bg);
+  }
+
+  .secondary-tab:hover:not(.active) {
+    color: var(--text-dim);
+    background: var(--hover);
+  }
+
+  .activity-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
   }
 
   .secondary-close {

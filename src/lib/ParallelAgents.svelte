@@ -1,6 +1,13 @@
 <script lang="ts">
   import type { AppSettings } from "$lib/editor-utils";
   import Terminal from "$lib/Terminal.svelte";
+  import AgentActivityCompact from "$lib/AgentActivityCompact.svelte";
+  import { attachParser, detachParser } from "$lib/agent-activity/activity-bridge";
+  import {
+    clearActivitySessions,
+    createActivitySession,
+    removeSessionsByTerminalId,
+  } from "$lib/agent-activity/activity-store";
   import {
     buildAgentGrokCommand,
     clampAgentCount,
@@ -40,6 +47,8 @@
   let newGoalTitle = $state("");
   let newGoalNotes = $state("");
   let newGoalCategory = $state("Goals");
+  let agentTerminalIds = $state<Record<string, number>>({});
+  let agentDetachFns = $state<Record<string, () => void>>({});
 
   let gridLayout = $derived(computeAgentGridLayout(agents.length || agentCount));
   let groupedGoals = $derived(groupGoalsByCategory(goals));
@@ -51,13 +60,32 @@
         : `Launch ${agentCount} Agent${agentCount === 1 ? "" : "s"}`,
   );
 
-  function markAgentsRunning() {
-    setTimeout(() => {
-      agents = agents.map((a) =>
-        a.status === "launching" ? { ...a, status: "running" as const } : a,
-      );
-      launching = false;
-    }, 1200);
+  function markAgentRunning(id: string) {
+    agents = agents.map((a) =>
+      a.id === id && a.status === "launching" ? { ...a, status: "running" as const } : a,
+    );
+    if (!agents.some((a) => a.status === "launching")) launching = false;
+  }
+
+  function handleAgentSpawned(agentId: string, label: string, terminalId: number) {
+    agentTerminalIds = { ...agentTerminalIds, [agentId]: terminalId };
+    agentDetachFns[agentId]?.();
+    const session = createActivitySession(label, terminalId);
+    agentDetachFns = { ...agentDetachFns, [agentId]: attachParser(session.id, terminalId) };
+    markAgentRunning(agentId);
+  }
+
+  function cleanupAgentActivity(agentId: string) {
+    const tid = agentTerminalIds[agentId];
+    if (tid != null) {
+      detachParser(tid);
+      removeSessionsByTerminalId(tid);
+    }
+    agentDetachFns[agentId]?.();
+    const { [agentId]: _t, ...restT } = agentTerminalIds;
+    const { [agentId]: _d, ...restD } = agentDetachFns;
+    agentTerminalIds = restT;
+    agentDetachFns = restD;
   }
 
   function launchAgents() {
@@ -78,8 +106,6 @@
       injectToken: agent.injectToken + 1,
       status: "launching" as const,
     }));
-
-    markAgentsRunning();
   }
 
   function relaunchAgent(id: string) {
@@ -90,20 +116,20 @@
     agents = agents.map((a) =>
       a.id === id ? { ...a, injectToken: a.injectToken + 1, status: "launching" as const } : a,
     );
-    setTimeout(() => {
-      agents = agents.map((a) =>
-        a.id === id && a.status === "launching" ? { ...a, status: "running" as const } : a,
-      );
-    }, 1200);
   }
 
   function removeAgent(id: string) {
+    cleanupAgentActivity(id);
     agents = agents.filter((a) => a.id !== id);
   }
 
   function clearAgents() {
+    for (const agent of agents) cleanupAgentActivity(agent.id);
+    clearActivitySessions();
     agents = [];
     launching = false;
+    agentTerminalIds = {};
+    agentDetachFns = {};
   }
 
   function resizeAgentSlots() {
@@ -186,7 +212,7 @@
 <div class="swarm">
   <header class="swarm-toolbar">
     <div class="swarm-title">
-      <span class="swarm-mark">GD</span>
+      <img class="swarm-logo" src="/favicon.png" alt="" width="28" height="28" />
       <div>
         <h2 class="swarm-heading">Parallel Agent Swarm</h2>
         <p class="swarm-sub">Launch Grok terminals side-by-side. Type your own prompts in each pane.</p>
@@ -247,6 +273,7 @@
             <div class="cell-head">
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <span class="cell-title">{agent.label}</span>
+              <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
               <span class="cell-status" class:running={agent.status === "running"}>
                 {statusLabel[agent.status]}
               </span>
@@ -264,6 +291,7 @@
                   enableHelper={false}
                   injectToken={agent.injectToken}
                   injectCommand={grokCommand || buildAgentGrokCommand(settings)}
+                  onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
                 />
               {:else}
                 <div class="cell-idle">Press Launch or ↻ to start this agent</div>
@@ -389,17 +417,11 @@
     gap: 12px;
   }
 
-  .swarm-mark {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--on-accent);
-    background: var(--accent);
+  .swarm-logo {
+    width: 28px;
+    height: 28px;
     border-radius: 6px;
+    flex-shrink: 0;
   }
 
   .swarm-heading { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }

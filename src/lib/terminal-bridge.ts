@@ -29,13 +29,26 @@ export type TerminalOutputEvent = {
 };
 
 export type TerminalOutputHandler = (data: string) => void;
+export type TerminalTapHandler = (data: string) => void;
 
 const OUTPUT_BUFFER_LIMIT = 64;
 const outputHandlers = new Map<TerminalId, TerminalOutputHandler>();
+const outputTaps = new Map<TerminalId, Set<TerminalTapHandler>>();
 const outputBuffers = new Map<TerminalId, string[]>();
 let outputListener: Promise<UnlistenFn> | null = null;
 
 function deliverOutput(id: TerminalId, data: string) {
+  const taps = outputTaps.get(id);
+  if (taps) {
+    for (const tap of taps) {
+      try {
+        tap(data);
+      } catch (error) {
+        console.error("Terminal tap failed:", error);
+      }
+    }
+  }
+
   const handler = outputHandlers.get(id);
   if (handler) {
     handler(data);
@@ -81,6 +94,27 @@ export function registerTerminalOutput(
   };
 }
 
+export function registerTerminalTap(
+  id: TerminalId,
+  handler: TerminalTapHandler,
+): () => void {
+  let taps = outputTaps.get(id);
+  if (!taps) {
+    taps = new Set();
+    outputTaps.set(id, taps);
+  }
+  taps.add(handler);
+
+  void ensureOutputListener();
+
+  return () => {
+    const set = outputTaps.get(id);
+    if (!set) return;
+    set.delete(handler);
+    if (set.size === 0) outputTaps.delete(id);
+  };
+}
+
 export async function spawnTerminal(options: TerminalSpawnOptions): Promise<TerminalId> {
   await ensureOutputListener();
   return invoke<TerminalId>("terminal_spawn", {
@@ -106,6 +140,7 @@ export async function resizeTerminal(options: TerminalResizeOptions): Promise<vo
 
 export async function closeTerminal(options: TerminalCloseOptions): Promise<void> {
   outputHandlers.delete(options.id);
+  outputTaps.delete(options.id);
   outputBuffers.delete(options.id);
   await invoke("terminal_close", {
     id: options.id,

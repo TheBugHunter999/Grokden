@@ -1,7 +1,8 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
-  import { fade, fly } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import type { AppSettings, AgentModePreset, ExecutionPolicy } from "$lib/editor-utils";
+  import { buildThemeStyle } from "$lib/editor-utils";
   import {
     loadOnboardingDraft,
     saveOnboardingDraft,
@@ -26,6 +27,7 @@
   } from "$lib/settings-import";
   import { setTelemetryEnabled, recordTelemetryEvent } from "$lib/telemetry-client";
   import ReviewDrivenDemo from "$lib/ReviewDrivenDemo.svelte";
+  import AgentModeDemo from "$lib/AgentModeDemo.svelte";
 
   type Props = {
     settings: AppSettings;
@@ -50,6 +52,8 @@
   ];
 
   const policies: ExecutionPolicy[] = ["ask-every-time", "review-first", "auto-run"];
+
+  const wizardThemeStyle = $derived(buildThemeStyle({ ...settings, theme: draft.theme }));
 
   $effect(() => {
     saveOnboardingDraft(draft);
@@ -152,7 +156,7 @@
   }
 </script>
 
-<div class="wizard" class:exiting>
+<div class="wizard" class:exiting style={wizardThemeStyle}>
   <div class="scenic" aria-hidden="true"></div>
 
   <button type="button" class="help-link">Help</button>
@@ -160,7 +164,7 @@
   <div class="wizard-body" class:split={draft.step === "agent"}>
     <div class="content" class:centered={draft.step === "welcome" || draft.step === "privacy" || draft.step === "setup" || draft.step === "theme" || draft.step === "editor"}>
       {#key draft.step}
-        <div class="step" in:fly={{ y: 12, duration: 280 }} out:fade={{ duration: 160 }}>
+        <div class="step" in:fade={{ duration: 220, delay: 130 }} out:fade={{ duration: 130 }}>
           {#if draft.step === "welcome"}
             <div class="welcome-hero">
               <div class="hero-glow"></div>
@@ -298,17 +302,16 @@
             <p class="custom-note">Policies can be updated anytime in Settings.</p>
           </div>
         {:else if draft.agentModePreset === "review-driven"}
-          <ReviewDrivenDemo />
+          {#key "review-driven"}
+            <ReviewDrivenDemo />
+          {/key}
+        {:else if draft.agentModePreset === "strict" || draft.agentModePreset === "agent-driven"}
+          {#key draft.agentModePreset}
+            <AgentModeDemo mode={draft.agentModePreset} />
+          {/key}
         {:else}
-          <div class="preview-mock">
-            <div class="pm-bar"></div>
-            <div class="pm-line"></div>
-            <div class="pm-line short"></div>
-            <div class="pm-line"></div>
-            <div class="pm-actions">
-              <span class="pm-review">Review</span>
-              <span class="pm-proceed">Proceed</span>
-            </div>
+          <div class="preview-mock custom">
+            <p class="custom-preview-note">Tune execution policies in the panel on the left.</p>
           </div>
         {/if}
         <p class="preview-caption">{agentCaption(draft.agentModePreset)}</p>
@@ -337,10 +340,10 @@
     z-index: 15000;
     display: flex;
     flex-direction: column;
-    background: #0e0e11;
-    color: #ececf4;
+    background: var(--bg, #0e0e11);
+    color: var(--text, #ececf4);
     opacity: 1;
-    transition: opacity 0.35s ease-out;
+    transition: opacity 0.35s ease-out, background 0.25s ease;
     overflow: hidden;
   }
   .wizard.exiting {
@@ -352,10 +355,11 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 90% 45% at 50% 105%, rgba(74, 158, 255, 0.22) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 30% at 75% 95%, rgba(139, 124, 248, 0.12) 0%, transparent 50%),
-      linear-gradient(180deg, #0a0a0c 0%, #0e0e11 50%, #0c1016 100%);
+      radial-gradient(ellipse 90% 45% at 50% 105%, color-mix(in srgb, var(--accent, #4a9eff) 22%, transparent) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 30% at 75% 95%, color-mix(in srgb, var(--accent2, #8b7cf8) 12%, transparent) 0%, transparent 50%),
+      linear-gradient(180deg, var(--bg, #0a0a0c) 0%, var(--panel, #0e0e11) 50%, var(--editor-bg, #0c1016) 100%);
     pointer-events: none;
+    transition: background 0.25s ease;
   }
 
   .help-link {
@@ -478,9 +482,9 @@
     transform: translateY(-1px);
   }
   .setup-opt.selected {
-    border-color: #4a9eff;
-    box-shadow: 0 0 0 1px rgba(74, 158, 255, 0.4), 0 8px 24px rgba(74, 158, 255, 0.08);
-    background: rgba(74, 158, 255, 0.08);
+    border-color: var(--accent, #4a9eff);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 8px 24px color-mix(in srgb, var(--accent) 8%, transparent);
+    background: var(--accent-soft);
   }
   .setup-opt:disabled { opacity: 0.6; cursor: wait; }
 
@@ -505,7 +509,7 @@
     font-size: 12px;
   }
   .theme-opt.selected .mini-ide {
-    outline: 2px solid #4a9eff;
+    outline: 2px solid var(--accent, #4a9eff);
     outline-offset: 2px;
   }
   .mini-ide {
@@ -554,8 +558,9 @@
     transform: translateY(-1px);
   }
   .agent-opt.selected {
-    border-color: #4a9eff;
-    box-shadow: 0 0 0 1px rgba(74, 158, 255, 0.4), 0 8px 24px rgba(74, 158, 255, 0.08);
+    border-color: var(--accent, #4a9eff);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 8px 24px color-mix(in srgb, var(--accent) 8%, transparent);
+    background: var(--accent-soft);
   }
   .radio {
     width: 18px;
@@ -565,9 +570,9 @@
     flex-shrink: 0;
   }
   .radio.checked {
-    border-color: #4a9eff;
-    background: radial-gradient(circle at center, #4a9eff 0 45%, transparent 46%);
-    box-shadow: inset 0 0 0 3px #121214;
+    border-color: var(--accent, #4a9eff);
+    background: radial-gradient(circle at center, var(--accent) 0 45%, transparent 46%);
+    box-shadow: inset 0 0 0 3px var(--bg, #121214);
   }
   .agent-label { flex: 1; }
   .rec-badge {
@@ -587,50 +592,23 @@
     position: sticky;
     top: 48px;
   }
-  .preview-mock {
+  .preview-mock.custom {
     flex: 1;
     min-height: 200px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.25);
-    padding: 12px;
+    background: color-mix(in srgb, var(--panel) 60%, transparent);
+    padding: 20px;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    align-items: center;
+    justify-content: center;
   }
-  .pm-bar {
-    height: 4px;
-    width: 100%;
-    border-radius: 999px;
-    background: #4a9eff;
-    margin-bottom: 8px;
-  }
-  .pm-line {
-    height: 8px;
-    width: 85%;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .pm-line.short { width: 55%; }
-  .pm-actions {
-    margin-top: auto;
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-  }
-  .pm-review {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+  .custom-preview-note {
+    margin: 0;
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  .pm-proceed {
-    padding: 6px 14px;
-    border-radius: 6px;
-    background: #4a9eff;
-    font-size: 12px;
-    color: #fff;
+    color: var(--text-mute);
+    text-align: center;
+    line-height: 1.5;
   }
   .preview-caption {
     margin: 0;
@@ -714,8 +692,8 @@
     cursor: pointer;
   }
   .seg button.on {
-    background: #4a9eff;
-    color: #fff;
+    background: var(--accent, #4a9eff);
+    color: var(--on-accent, #fff);
   }
   .ext-brief {
     margin: 0;
@@ -806,8 +784,8 @@
     border-color: transparent;
   }
   .dot.active {
-    background: #4a9eff;
-    border-color: #4a9eff;
+    background: var(--accent, #4a9eff);
+    border-color: var(--accent, #4a9eff);
   }
 
   .next {
@@ -817,15 +795,15 @@
     gap: 6px;
     border: none;
     border-radius: 8px;
-    background: #4a9eff;
-    color: #fff;
+    background: var(--accent, #4a9eff);
+    color: var(--on-accent, #fff);
     font-size: 14px;
     font-weight: 500;
     padding: 9px 18px;
     cursor: pointer;
     transition: background 0.2s, transform 0.15s;
   }
-  .next:hover { background: #3d8ce6; }
+  .next:hover { filter: brightness(1.08); }
   .next:active { transform: scale(0.98); }
 
   @media (max-width: 860px) {

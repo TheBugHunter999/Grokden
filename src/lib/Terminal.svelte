@@ -31,6 +31,7 @@
     promptDelayMs = 2800,
     compact = false,
     enableHelper = true,
+    onSpawned = undefined,
   }: {
     settings: AppSettings;
     cwd?: string | null;
@@ -42,6 +43,7 @@
     promptDelayMs?: number;
     compact?: boolean;
     enableHelper?: boolean;
+    onSpawned?: (id: number) => void;
   } = $props();
 
   let hostEl = $state<HTMLDivElement | undefined>();
@@ -225,6 +227,7 @@
           term.write(data);
         }
       });
+      onSpawned?.(id);
 
       await fitAndResize();
     } catch (error) {

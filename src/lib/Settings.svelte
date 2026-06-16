@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     themeList,
-    accentList,
+
     settingsNav,
     FONT_STACKS,
     gitDiffModes,
@@ -119,27 +119,19 @@
     {/if}
 
     {#if !filter.trim() && section === "appearance"}<div class="group-title">Appearance</div>{/if}
-    {#if showRow("appearance", "Theme color scheme dark light midnight nebula grokden")}
+    {#if showRow("appearance", "Theme color scheme dark light charcoal tokyo mocha grokden")}
       <div class="row col"><div class="meta"><div class="label">Theme</div><div class="desc">Choose the overall color scheme for the workspace.</div></div>
         <div class="theme-grid">
           {#each themeList as th (th.id)}
             <button type="button" class="theme-card" class:active={settings.theme === th.id} onclick={() => (settings.theme = th.id)}>
-              <span class="theme-prev" style="background: {th.bg}"><span class="tp-bar" style="background: {th.accent}"></span><span class="tp-dot" style="background: {th.accent}"></span></span>
+              <span class="theme-prev" style="background: {th.bg}"><span class="tp-bar" style="background: {th.text}"></span><span class="tp-dot" style="background: {th.panel}"></span></span>
               <span class="theme-name">{th.label}</span>
             </button>
           {/each}
         </div>
       </div>
     {/if}
-    {#if showRow("appearance", "Accent Color highlight violet azure emerald amber rose")}
-      <div class="row"><div class="meta"><div class="label">Accent Color</div><div class="desc">Highlight color used across buttons, tabs and the active line.</div></div>
-        <div class="accent-row">
-          {#each accentList as ac (ac.id)}
-            <button type="button" class="accent-swatch" class:active={settings.accent === ac.id} title={ac.label} aria-label={ac.label} style="background: linear-gradient(135deg, {ac.a}, {ac.b})" onclick={() => (settings.accent = ac.id)}></button>
-          {/each}
-        </div>
-      </div>
-    {/if}
+
     {#if showRow("appearance", "Font Family editor typeface monospace")}
       <div class="row"><div class="meta"><div class="label">Font Family</div><div class="desc">Typeface used in the code editor and terminal.</div></div>
         <select class="select" bind:value={settings.fontFamily}>
@@ -810,16 +802,4 @@
   .tp-dot { position: absolute; bottom: 8px; left: 8px; width: 14px; height: 14px; border-radius: 50%; opacity: 0.9; }
   .theme-name { font-size: 12px; color: var(--text-dim); text-align: center; }
   .theme-card.active .theme-name { color: var(--text); }
-
-  .accent-row { display: flex; gap: 10px; flex-shrink: 0; }
-  .accent-swatch {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: transform 0.1s, box-shadow 0.15s;
-  }
-  .accent-swatch:hover { transform: scale(1.1); }
-  .accent-swatch.active { box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 4px var(--accent); }
 </style>
