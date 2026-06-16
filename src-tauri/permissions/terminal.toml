@@ -1,0 +1,19 @@
+[[permission]]
+identifier = "allow-terminal-spawn"
+description = "Enables the terminal_spawn command."
+commands.allow = ["terminal_spawn"]
+
+[[permission]]
+identifier = "allow-terminal-write"
+description = "Enables the terminal_write command."
+commands.allow = ["terminal_write"]
+
+[[permission]]
+identifier = "allow-terminal-resize"
+description = "Enables the terminal_resize command."
+commands.allow = ["terminal_resize"]
+
+[[permission]]
+identifier = "allow-terminal-close"
+description = "Enables the terminal_close command."
+commands.allow = ["terminal_close"]

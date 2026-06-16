@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "allow-list-folder"
+description = "Enables the list_folder command."
+commands.allow = ["list_folder"]
+
+[[permission]]
+identifier = "allow-read-file"
+description = "Enables the read_file command."
+commands.allow = ["read_file"]
+
+[[permission]]
+identifier = "allow-save-file"
+description = "Enables the save_file command."
+commands.allow = ["save_file"]
+
+[[permission]]
+identifier = "allow-path-exists"
+description = "Enables the path_exists command."
+commands.allow = ["path_exists"]
+
+[[permission]]
+identifier = "allow-create-file"
+description = "Enables the create_file command."
+commands.allow = ["create_file"]
+
+[[permission]]
+identifier = "allow-create-folder"
+description = "Enables the create_folder command."
+commands.allow = ["create_folder"]

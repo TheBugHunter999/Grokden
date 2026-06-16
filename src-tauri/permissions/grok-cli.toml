@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-grok-cli-available"
+description = "Enables the grok_cli_available command."
+commands.allow = ["grok_cli_available"]
