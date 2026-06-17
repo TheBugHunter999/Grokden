@@ -1,6 +1,6 @@
 [package]
 name = "grokden"
-version = "0.1.13"
+version = "0.1.14"
 description = "Grokden desktop workspace for Grok CLI"
 authors = ["Grokden Contributors"]
 edition = "2021"

@@ -161,7 +161,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.13");
+  let appVersion = $state("0.1.14");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (

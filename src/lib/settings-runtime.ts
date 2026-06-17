@@ -294,7 +294,21 @@ export function buildIdeLayoutClasses(settings: AppSettings): IdeLayoutClasses {
   return classes;
 }
 
-/** Maps slider 50 (max glass) … 100 (opaque) to controlled surface alphas. */
+/** Piecewise lerp across [percent, alpha] keyframes (percent ascending). */
+function lerpGlassKeyframes(pct: number, keyframes: readonly [number, number][]): number {
+  const p = clamp(pct, keyframes[0][0], keyframes[keyframes.length - 1][0]);
+  for (let i = 0; i < keyframes.length - 1; i++) {
+    const [p0, v0] = keyframes[i];
+    const [p1, v1] = keyframes[i + 1];
+    if (p >= p0 && p <= p1) {
+      const t = (p - p0) / (p1 - p0);
+      return v0 + t * (v1 - v0);
+    }
+  }
+  return keyframes[keyframes.length - 1][1];
+}
+
+/** Maps slider 50 (strongest glass) … 100 (solid) to single-layer surface alphas. */
 export function glassSurfaceMix(percent: number): {
   strength: number;
   panelAlpha: number;
@@ -304,14 +318,43 @@ export function glassSurfaceMix(percent: number): {
 } {
   const pct = clamp(percent, 50, 100);
   const strength = (100 - pct) / 50;
-  const editorAlpha = 0.28 + (1 - strength) * 0.533;
-  const panelAlpha = Math.min(editorAlpha + 0.1, 0.92);
+
+  const editorAlpha = lerpGlassKeyframes(pct, [
+    [50, 0.11],
+    [65, 0.22],
+    [80, 0.42],
+    [95, 0.78],
+    [100, 0.94],
+  ]);
+
+  const panelAlpha = lerpGlassKeyframes(pct, [
+    [50, 0.24],
+    [65, 0.38],
+    [80, 0.58],
+    [95, 0.86],
+    [100, 0.97],
+  ]);
+
+  const borderAlpha = lerpGlassKeyframes(pct, [
+    [50, 0.14],
+    [65, 0.2],
+    [80, 0.3],
+    [95, 0.44],
+    [100, 0.5],
+  ]);
+
   return {
     strength,
     panelAlpha,
     editorAlpha,
-    railAlpha: Math.min(panelAlpha - 0.02, 0.9),
-    borderAlpha: 0.28 + (1 - strength) * 0.22,
+    railAlpha: lerpGlassKeyframes(pct, [
+      [50, 0.22],
+      [65, 0.36],
+      [80, 0.54],
+      [95, 0.82],
+      [100, 0.95],
+    ]),
+    borderAlpha,
   };
 }
 
@@ -513,7 +556,7 @@ export function buildStatusChips(
     chips.push({ label: `Start: ${settings.startupBehavior}`, tone: "muted" });
   }
   if (settings.windowTransparency < 100) {
-    chips.push({ label: `${settings.windowTransparency}% opacity`, tone: "muted" });
+    chips.push({ label: `${settings.windowTransparency}% glass`, tone: "muted" });
   }
   if (!settings.enableAnimations) chips.push({ label: "No motion", tone: "muted" });
   if (!settings.showBreadcrumbs) chips.push({ label: "No breadcrumbs", tone: "muted" });

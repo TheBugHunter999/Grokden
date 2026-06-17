@@ -79,7 +79,7 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- Fix window glass layering (single surface per region)
+- Stronger window glass curve (clear see-through at 50%)
 - Redesigned update screen (centered hero, release notes, progress)
 - Fix in-app updater (latest.json manifest + clearer check status)
 
@@ -120,7 +120,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Fix window glass layering (no stacked translucent surfaces)`n- Redesigned update screen with centered hero and release notes`n- Fix in-app updater manifest and check status"
+    notes = "- Stronger window glass (desktop visible at 50%)`n- Redesigned update screen with centered hero and release notes`n- Fix in-app updater manifest and check status"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{

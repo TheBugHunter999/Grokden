@@ -310,6 +310,28 @@ fn app_ready(app: AppHandle) -> Result<(), String> {
 
 static LAST_WINDOW_TRANSPARENCY: Mutex<Option<u8>> = Mutex::new(None);
 
+#[cfg(target_os = "windows")]
+fn acrylic_tint_alpha(percent: u8) -> u8 {
+    let p = percent as f32;
+    let alpha = if p <= 65.0 {
+        lerp_f32(50.0, 8.0, 65.0, 28.0, p)
+    } else if p <= 80.0 {
+        lerp_f32(65.0, 28.0, 80.0, 55.0, p)
+    } else if p <= 95.0 {
+        lerp_f32(80.0, 55.0, 95.0, 130.0, p)
+    } else {
+        lerp_f32(95.0, 130.0, 99.0, 165.0, p)
+    };
+    alpha.round().clamp(0.0, 175.0) as u8
+}
+
+fn lerp_f32(a: f32, va: f32, b: f32, vb: f32, x: f32) -> f32 {
+    if (b - a).abs() < f32::EPSILON {
+        return va;
+    }
+    va + (x - a) / (b - a) * (vb - va)
+}
+
 #[tauri::command]
 fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
     let Some(window) = app.get_webview_window("main") else {
@@ -352,9 +374,7 @@ fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
         let _ = clear_acrylic(&window);
         let _ = clear_mica(&window);
 
-        // strength 0 at 100% slider, 1 at 50% — more strength = more see-through
-        let strength = (100.0 - percent as f32) / 50.0;
-        let tint_alpha = (18.0 + (1.0 - strength) * 130.0).round().clamp(18.0, 175.0) as u8;
+        let tint_alpha = acrylic_tint_alpha(percent);
 
         // Acrylic blurs live desktop content; Mica only tints wallpaper.
         if apply_acrylic(&window, Some((9_u8, 9, 13, tint_alpha))).is_err() {
