@@ -26,6 +26,7 @@
     buildGrokLaunchCommand,
     buildOutputPanelLines,
     buildStatusChips,
+    STATUS_BAR_COMPACT_WIDTH,
     buildIdeLayoutClassesWithSecondary,
     applyRestoredTerminalSettings,
     buildTerminalSessionSlice,
@@ -211,6 +212,8 @@
   let editorTextarea: HTMLTextAreaElement | undefined = $state();
   let editorScrollEl = $state<HTMLDivElement | undefined>();
   let workspaceBodyEl = $state<HTMLDivElement | undefined>();
+  let statusBarEl = $state<HTMLDivElement | undefined>();
+  let statusBarWidth = $state(0);
   let workspaceBodyHeight = $state(720);
   let workspaceBodyWidth = $state(1280);
   let layoutConstraint = createLayoutConstraintState();
@@ -239,6 +242,17 @@
     measureWorkspaceBody();
     const ro = new ResizeObserver(() => {
       measureWorkspaceBody();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
+  $effect(() => {
+    const el = statusBarEl;
+    if (!el) return;
+    statusBarWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      statusBarWidth = el.clientWidth;
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -559,7 +573,11 @@
       ? activeTab.path.split(/[/\\]+/).filter(Boolean)
       : [],
   );
-  let scopedStatusChips = $derived(buildStatusChips(settings));
+  let scopedStatusChips = $derived(
+    buildStatusChips(settings, {
+      compact: statusBarWidth > 0 && statusBarWidth < STATUS_BAR_COMPACT_WIDTH,
+    }),
+  );
   let debugConsoleClasses = $derived(buildDebugConsoleClasses(settings));
   let showPresence = $derived(shouldShowPresenceIndicators(settings));
   let showCollabCursors = $derived(shouldShowCollaboratorCursors(settings));
@@ -1982,7 +2000,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     </div>
   </div>
 
-  <div class="statusbar" class:zen-hidden={settings.zenMode}>
+  <div class="statusbar" class:zen-hidden={settings.zenMode} bind:this={statusBarEl}>
     <div class="status-left">
       <span class="status-chip accent">{view === "agents" ? `Swarm · ${parallelAgents.length} agents` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
       {#if folderPath}<span class="status-chip" title={folderPath}>{folderName}</span>{/if}
@@ -3296,21 +3314,47 @@ This is a very long debug log line that demonstrates whether the debug console w
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     height: 24px;
     padding: 0 12px;
     flex: 0 0 auto;
     flex-shrink: 0;
+    overflow: hidden;
     background: var(--panel-solid);
     border-top: 1px solid var(--border);
     font-size: 11px;
     color: var(--text-mute);
   }
-  .status-left, .status-right { display: flex; align-items: center; gap: 6px; }
-  .status-chip { padding: 1px 8px; border-radius: 4px; white-space: nowrap; }
+
+  .status-left,
+  .status-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .status-left {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .status-right {
+    flex: 0 0 auto;
+  }
+
+  .status-chip {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
   .status-chip.accent { color: var(--accent); font-weight: 400; }
   .status-chip.warn { color: var(--warn); background: var(--warn-soft); }
   .status-chip.muted { color: var(--text-mute); background: var(--chip-bg); font-size: 10px; }
-  .status-left { flex-wrap: wrap; row-gap: 2px; max-width: 55%; overflow: hidden; }
   .command-badge.settings-notice { color: var(--accent); border-color: var(--accent-mid); }
 
   .ide { opacity: var(--ui-opacity, 1); }

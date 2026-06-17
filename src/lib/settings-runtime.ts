@@ -411,10 +411,22 @@ function pickScopedSettings(settings: AppSettings): Record<string, unknown> {
   return picked;
 }
 
-export function buildStatusChips(settings: AppSettings): StatusChip[] {
+/** Hide decorative settings chips when the status bar is too narrow for a single row. */
+export const STATUS_BAR_COMPACT_WIDTH = 1100;
+
+export function buildStatusChips(
+  settings: AppSettings,
+  options?: { compact?: boolean },
+): StatusChip[] {
+  const compact = options?.compact ?? false;
   const chips: StatusChip[] = [];
 
   if (settings.autoSave) chips.push({ label: "Auto-save", tone: "accent" });
+  if (settings.telemetryEnabled) chips.push({ label: "Telemetry", tone: "warn" });
+  if (settings.zenMode) chips.push({ label: "Zen", tone: "accent" });
+
+  if (compact) return chips;
+
   if (settings.confirmClose) chips.push({ label: "Confirm close", tone: "muted" });
   if (settings.confirmBeforeQuit) chips.push({ label: "Confirm quit", tone: "muted" });
   chips.push({
@@ -432,7 +444,6 @@ export function buildStatusChips(settings: AppSettings): StatusChip[] {
   chips.push({ label: `${settings.fontSize}px`, tone: "muted" });
   chips.push({ label: settings.fontFamily, tone: "muted" });
   if (!settings.showTerminalOnStart) chips.push({ label: "Terminal hidden on start", tone: "muted" });
-  if (settings.telemetryEnabled) chips.push({ label: "Telemetry", tone: "warn" });
   if (!settings.crashReportsEnabled) chips.push({ label: "Crash reports off", tone: "muted" });
   if (settings.autoCheckUpdates) {
     chips.push({
@@ -443,7 +454,6 @@ export function buildStatusChips(settings: AppSettings): StatusChip[] {
   }
   if (settings.openFoldersInNewWindow) chips.push({ label: "New window mode", tone: "muted" });
   if (settings.windowRestoreFullscreen) chips.push({ label: "Fullscreen restore" });
-  if (settings.zenMode) chips.push({ label: "Zen", tone: "accent" });
   if (settings.centeredLayout) chips.push({ label: "Centered" });
   if (!settings.restoreWindows) chips.push({ label: "No session restore", tone: "muted" });
   if (settings.titleBarStyle !== "custom") {
