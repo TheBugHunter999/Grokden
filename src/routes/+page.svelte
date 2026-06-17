@@ -150,6 +150,9 @@
     GROK_CLI_INSTALL_WINDOWS,
     isGrokCliAvailable,
   } from "$lib/grok-cli";
+  import { APP_DISPLAY_NAME, migrateLegacyBranding, syncAppBranding } from "$lib/branding";
+
+  migrateLegacyBranding();
 
   type EditorTab = { path: string; name: string; content: string; savedContent: string };
 
@@ -1429,6 +1432,8 @@
   let unbindViewportSync: (() => void) | undefined;
 
   onMount(() => {
+    void syncAppBranding();
+
     installLayoutBridge({
       toggleTerminal: () => toggleTerminalPanel(),
       openTerminal: () => openTerminalPanel(),
@@ -1682,7 +1687,7 @@
   <header class="topbar" data-tauri-drag-region>
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
-      <span class="app-name">Grokden</span>
+      <span class="app-name">{APP_DISPLAY_NAME}</span>
       <span class="version-pill">v{appVersion}</span>
     </div>
 

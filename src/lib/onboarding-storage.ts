@@ -1,4 +1,5 @@
 import type { AppSettings } from "$lib/editor-utils";
+import { migrateLegacyBrandingStorage } from "$lib/branding";
 
 export type OnboardingStepId =
   | "welcome"
@@ -57,9 +58,14 @@ export function defaultOnboardingDraft(settings: AppSettings): OnboardingDraft {
   };
 }
 
+function readStorageKey(key: string): string | null {
+  migrateLegacyBrandingStorage();
+  return localStorage.getItem(key);
+}
+
 export function loadOnboardingDraft(settings: AppSettings): OnboardingDraft {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readStorageKey(STORAGE_KEY);
     if (!raw) return defaultOnboardingDraft(settings);
     const parsed = JSON.parse(raw) as Partial<OnboardingDraft>;
     return { ...defaultOnboardingDraft(settings), ...parsed };
@@ -79,9 +85,9 @@ export function clearOnboardingDraft(): void {
 export function shouldRequireOnboarding(settings: AppSettings): boolean {
   if (settings.onboardingCompleted) return false;
 
-  const hasSession = !!localStorage.getItem("Grokden.session");
-  const rawSettings = localStorage.getItem("Grokden.settings");
-  const rawOnboarding = localStorage.getItem(STORAGE_KEY);
+  const hasSession = !!readStorageKey("Grokden.session");
+  const rawSettings = readStorageKey("Grokden.settings");
+  const rawOnboarding = readStorageKey(STORAGE_KEY);
 
   if (rawOnboarding) return true;
   if (hasSession) return false;
@@ -98,13 +104,13 @@ export function shouldRequireOnboarding(settings: AppSettings): boolean {
 
 export function markLegacyOnboardingComplete(settings: AppSettings): AppSettings {
   if (settings.onboardingCompleted) return settings;
-  const hasSession = !!localStorage.getItem("Grokden.session");
-  const rawOnboarding = localStorage.getItem(STORAGE_KEY);
+  const hasSession = !!readStorageKey("Grokden.session");
+  const rawOnboarding = readStorageKey(STORAGE_KEY);
   if (rawOnboarding) return settings;
   if (hasSession) {
     return { ...settings, onboardingCompleted: true };
   }
-  const rawSettings = localStorage.getItem("Grokden.settings");
+  const rawSettings = readStorageKey("Grokden.settings");
   if (rawSettings) {
     try {
       const parsed = JSON.parse(rawSettings) as Partial<AppSettings>;

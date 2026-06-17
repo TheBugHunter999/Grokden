@@ -1,3 +1,5 @@
+import { migrateLegacyBrandingStorage } from "$lib/branding";
+
 const STORAGE_KEY = "Grokden.folderTrust";
 
 export type FolderTrustChoice = "trusted" | "restricted";
@@ -9,6 +11,7 @@ type FolderTrustStore = {
 function readStore(): FolderTrustStore {
   try {
     if (typeof localStorage === "undefined") return { trusted: [] };
+    migrateLegacyBrandingStorage();
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { trusted: [] };
     const parsed = JSON.parse(raw) as Partial<FolderTrustStore>;

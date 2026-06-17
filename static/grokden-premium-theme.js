@@ -1,5 +1,19 @@
 (() => {
+  const LEGACY_STORAGE_KEYS = [
+    "AetherForge.premiumGrokTheme.enabled",
+    "AetherForgeTest.premiumGrokTheme.enabled",
+    "aetherforge.premiumGrokTheme.enabled",
+  ];
   const STORAGE_KEY = "Grokden.premiumGrokTheme.enabled";
+
+  for (const legacyKey of LEGACY_STORAGE_KEYS) {
+    if (localStorage.getItem(STORAGE_KEY) !== null) break;
+    const legacyValue = localStorage.getItem(legacyKey);
+    if (legacyValue !== null) {
+      localStorage.setItem(STORAGE_KEY, legacyValue);
+      break;
+    }
+  }
   const CLASS_NAME = "grokden-premium-theme";
   const CARD_CLASS = "grok-premium-theme-card";
 

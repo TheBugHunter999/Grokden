@@ -86,11 +86,9 @@ For each installer it prints file size and a SHA-256 checksum. Copy those checks
 Clone the repository:
 
 ```
-git clone https://github.com/TheBugHunter999/AetherForge.git
-cd AetherForge
+git clone https://github.com/TheBugHunter999/Grokden.git
+cd Grokden
 ```
-
-The GitHub repository may still use the legacy folder name AetherForge. The application product name is Grokden.
 
 Install JavaScript dependencies:
 

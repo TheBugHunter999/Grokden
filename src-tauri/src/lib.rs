@@ -380,6 +380,7 @@ pub fn run() {
         .setup(|app| {
             if let Some(main) = app.get_webview_window("main") {
                 let _ = lock_wizard_window(&main);
+                let _ = main.set_title("Grokden");
                 let _ = main.set_background_color(Some(Color::from((9_u8, 9, 13, 255))));
                 let _ = main.show();
                 let _ = main.set_focus();

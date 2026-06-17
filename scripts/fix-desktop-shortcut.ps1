@@ -19,7 +19,12 @@ function Test-InstallDir {
     }
 
     $normalized = $Dir.Trim().Trim('"').TrimEnd('\')
-    return Test-Path -LiteralPath (Join-Path $normalized 'grokden.exe')
+    foreach ($exeName in @('grokden.exe', 'AetherForge.exe', 'AetherForgeTest.exe', 'aetherforge.exe')) {
+        if (Test-Path -LiteralPath (Join-Path $normalized $exeName)) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Get-RegistryInstallDir {
@@ -75,7 +80,15 @@ function Get-GrokdenInstallDir {
         'HKCU:\Software\Grokden\Grokden',
         'HKLM:\Software\Grokden\Grokden',
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Grokden',
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Grokden'
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Grokden',
+        'HKCU:\Software\AetherForge\AetherForge',
+        'HKLM:\Software\AetherForge\AetherForge',
+        'HKCU:\Software\AetherForge\AetherForgeTest',
+        'HKLM:\Software\AetherForge\AetherForgeTest',
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AetherForge',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AetherForge',
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AetherForgeTest',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\AetherForgeTest'
     )
 
     foreach ($key in $registryKeys) {
@@ -88,7 +101,13 @@ function Get-GrokdenInstallDir {
     $candidates = @(
         (Join-Path $env:LOCALAPPDATA 'Programs\Grokden'),
         (Join-Path $env:ProgramFiles 'Grokden'),
-        (Join-Path ${env:ProgramFiles(x86)} 'Grokden')
+        (Join-Path ${env:ProgramFiles(x86)} 'Grokden'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\AetherForge'),
+        (Join-Path $env:ProgramFiles 'AetherForge'),
+        (Join-Path ${env:ProgramFiles(x86)} 'AetherForge'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\AetherForgeTest'),
+        (Join-Path $env:ProgramFiles 'AetherForgeTest'),
+        (Join-Path ${env:ProgramFiles(x86)} 'AetherForgeTest')
     )
 
     foreach ($dir in $candidates) {
@@ -132,11 +151,16 @@ function Clear-ShellIconCache {
 }
 
 $installDir = Get-GrokdenInstallDir
-$exe = Join-Path $installDir 'grokden.exe'
+$exe = @(
+    (Join-Path $installDir 'grokden.exe'),
+    (Join-Path $installDir 'AetherForge.exe'),
+    (Join-Path $installDir 'AetherForgeTest.exe'),
+    (Join-Path $installDir 'aetherforge.exe')
+) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 $icon = Join-Path $installDir 'resources\icon.ico'
 
-if (-not (Test-Path -LiteralPath $exe)) {
-    throw "Missing executable: $exe"
+if ([string]::IsNullOrWhiteSpace($exe) -or -not (Test-Path -LiteralPath $exe)) {
+    throw "Missing executable in install folder: $installDir"
 }
 
 if (-not (Test-Path -LiteralPath $icon)) {

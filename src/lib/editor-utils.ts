@@ -1,3 +1,5 @@
+import { migrateLegacyBrandingStorage } from "$lib/branding";
+
 export type FileMeta = { label: string; color: string };
 
 export type SearchMatch = { path: string; name: string; line: number; text: string };
@@ -661,6 +663,7 @@ export function buildThemeStyle(settings: AppSettings): string {
 export function loadSettings(): AppSettings {
   try {
     if (typeof localStorage !== "undefined") {
+      migrateLegacyBrandingStorage();
       const raw = localStorage.getItem("Grokden.settings");
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;

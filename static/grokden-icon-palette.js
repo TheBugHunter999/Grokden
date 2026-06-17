@@ -1,6 +1,19 @@
 (() => {
   try {
     const key = "Grokden.settings";
+    for (const legacyKey of [
+      "AetherForge.settings",
+      "AetherForgeTest.settings",
+      "aetherforge.settings",
+    ]) {
+      if (localStorage.getItem(key) !== null) break;
+      const legacyValue = localStorage.getItem(legacyKey);
+      if (legacyValue !== null) {
+        localStorage.setItem(key, legacyValue);
+        break;
+      }
+    }
+
     const raw = localStorage.getItem(key);
     if (!raw) return;
 
