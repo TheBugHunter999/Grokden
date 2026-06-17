@@ -1,0 +1,94 @@
+/*
+  Grokden brand palette from the app icon.
+  Replaces the old violet-heavy look with navy + teal/cyan.
+*/
+
+.ide {
+  --grokden-navy: #1e3144;
+  --grokden-navy-dark: #0d1722;
+  --grokden-teal-dark: #214d5b;
+  --grokden-teal: #218387;
+  --grokden-cyan: #5cc9c7;
+
+  --accent: #41a0a4 !important;
+  --accent2: #218387 !important;
+  --accent-muted: #5cc9c7 !important;
+  --accent-subtle: #d7fbfa !important;
+  --accent-soft: rgba(92, 201, 199, 0.16) !important;
+  --accent-mid: rgba(92, 201, 199, 0.30) !important;
+  --accent-strong: rgba(92, 201, 199, 0.52) !important;
+  --focus-ring: #5cc9c7 !important;
+  --selection: rgba(92, 201, 199, 0.22) !important;
+  --accent-grad: linear-gradient(135deg, #5cc9c7, #218387) !important;
+}
+
+.ide[data-theme="codex"],
+.ide[data-theme="aurora"] {
+  --bg: #0d1722 !important;
+  --panel: #101823 !important;
+  --panel-solid: #111923 !important;
+  --editor-bg: #090f18 !important;
+  --surface-raised: #172333 !important;
+  --surface-overlay: rgba(13, 23, 34, 0.94) !important;
+  --surface-inset: #0a111b !important;
+  --border: rgba(92, 201, 199, 0.095) !important;
+  --border-strong: rgba(92, 201, 199, 0.18) !important;
+  --border-muted: rgba(92, 201, 199, 0.055) !important;
+  --hover: rgba(92, 201, 199, 0.055) !important;
+  --hover-strong: rgba(92, 201, 199, 0.105) !important;
+  --active: rgba(92, 201, 199, 0.145) !important;
+  --chip-bg: rgba(92, 201, 199, 0.075) !important;
+  --scrollbar: rgba(92, 201, 199, 0.22) !important;
+  --scrollbar-hover: rgba(92, 201, 199, 0.38) !important;
+}
+
+.ide.glass-window {
+  --glass-border: rgba(92, 201, 199, 0.13) !important;
+  --glass-highlight: rgba(185, 255, 253, 0.13) !important;
+  --glass-sheen: rgba(92, 201, 199, 0.06) !important;
+  --glass-panel-ring: rgba(92, 201, 199, 0.10) !important;
+  --glass-contrast-edge: rgba(0, 10, 16, 0.26) !important;
+}
+
+.ide.glass-window .rail-btn.active,
+.ide.glass-window .codex-list-row.active,
+.ide.glass-window .codex-project-row.active,
+.ide.glass-window .tab.active,
+.ide.glass-window .secondary-tab.active,
+.ide.glass-window .composer-chip:hover,
+.ide.glass-window .welcome-card:hover,
+.ide.glass-window .grokden-layout-btn.active,
+.ide.glass-window .grokden-menu-item:hover {
+  background:
+    linear-gradient(180deg, rgba(185, 255, 253, 0.16), rgba(92, 201, 199, 0.05)),
+    rgba(92, 201, 199, 0.15) !important;
+  border-color: rgba(92, 201, 199, 0.30) !important;
+}
+
+.ide.glass-window .tab.active::after,
+.ide.glass-window .status-chip.accent,
+.ide.glass-window .command-badge.share-badge,
+.ide.glass-window .settings-badge,
+.ide.glass-window .swarm-badge,
+.ide.glass-window .rail-live,
+.ide.glass-window .codex-dot {
+  background: #5cc9c7 !important;
+  color: #071118 !important;
+}
+
+.ide.glass-window .tab-badge,
+.ide.glass-window .settings-badge,
+.ide.glass-window .swarm-badge,
+.ide.glass-window .grokden-layout-btn.active,
+.ide.glass-window .grokden-menu-trigger:hover,
+.ide.glass-window .grokden-menu-open .grokden-menu-trigger {
+  color: #5cc9c7 !important;
+}
+
+.ide.glass-window .activity-rail,
+.ide.glass-window .window-chrome,
+.ide.glass-window .topbar,
+.ide.glass-window .statusbar,
+.ide.glass-window .tab-bar {
+  border-color: rgba(92, 201, 199, 0.12) !important;
+}
