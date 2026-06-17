@@ -4,7 +4,6 @@
   const SIDEBAR_HIDDEN = "grokden-sidebar-hidden";
   const TERMINAL_HIDDEN = "grokden-terminal-hidden";
   const SECONDARY_HIDDEN = "grokden-secondary-hidden";
-  const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || "");
 
   const ide = () => document.querySelector(".ide");
   const visible = (el) => {
@@ -43,12 +42,17 @@
       const trigger = menu.querySelector(".grokden-menu-trigger");
       if (!trigger) return;
 
+      trigger.addEventListener("pointerdown", () => {
+        menu.dataset.wasOpenBeforeClick = menu.classList.contains(MENU_OPEN) ? "1" : "0";
+      }, true);
+
       trigger.addEventListener("click", (event) => {
         event.preventDefault();
         event.stopImmediatePropagation();
-        const wasOpen = menu.classList.contains(MENU_OPEN);
+        const wasOpen = menu.dataset.wasOpenBeforeClick === "1";
         closeMenus();
         if (!wasOpen) menu.classList.add(MENU_OPEN);
+        menu.dataset.wasOpenBeforeClick = "0";
       }, true);
 
       menu.addEventListener("mouseenter", () => {
