@@ -1,0 +1,46 @@
+/*
+  Remove the remaining purple gutter accent in glass mode.
+  Line numbers stay, but no vertical strip should run down the editor.
+*/
+
+.ide.glass-window .line-numbers,
+.ide.glass-window .line-numbers::before,
+.ide.glass-window .line-numbers::after,
+.ide.glass-window .line-num,
+.ide.glass-window .line-num::before,
+.ide.glass-window .line-num::after,
+.ide.glass-window .line-num.active::before,
+.ide.glass-window .line-num.active::after {
+  border-right: 0 !important;
+  border-left: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.ide.glass-window .line-num::before,
+.ide.glass-window .line-num::after,
+.ide.glass-window .line-num.active::before,
+.ide.glass-window .line-num.active::after {
+  content: none !important;
+  display: none !important;
+}
+
+.ide.glass-window .line-numbers {
+  background: rgba(5, 7, 13, 0.12) !important;
+  min-width: 42px !important;
+  padding-right: 8px !important;
+}
+
+.ide.glass-window .code-textarea {
+  border-left: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.ide.glass-window .editor-input-wrap,
+.ide.glass-window .editor-input-wrap::before,
+.ide.glass-window .editor-input-wrap::after {
+  border-left: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
