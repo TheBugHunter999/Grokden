@@ -1,0 +1,68 @@
+/*
+  Fix for the oversized rounded glass slab inside Explorer/Search/Source Control.
+  Side panels should read like professional IDE panes, not giant floating cards.
+*/
+
+.ide.glass-window .sidebar {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  border-left: 0 !important;
+  border-right: 1px solid color-mix(in srgb, var(--glass-border, var(--border)) 72%, rgba(255, 255, 255, 0.04)) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012) 36%, rgba(0, 0, 0, 0.045)),
+    color-mix(in srgb, var(--glass-panel-bg, var(--panel)) 84%, rgba(8, 10, 16, 0.34)) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    1px 0 0 rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(calc(20px + 24px * var(--glass-strength, 0.5))) saturate(1.34) contrast(1.035) !important;
+  -webkit-backdrop-filter: blur(calc(20px + 24px * var(--glass-strength, 0.5))) saturate(1.34) contrast(1.035) !important;
+}
+
+.ide.glass-window .workspace-panels.sidebar-right .sidebar {
+  margin: 0 !important;
+  border-right: 0 !important;
+  border-left: 1px solid color-mix(in srgb, var(--glass-border, var(--border)) 72%, rgba(255, 255, 255, 0.04)) !important;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    -1px 0 0 rgba(0, 0, 0, 0.22) !important;
+}
+
+.ide.glass-window .sidebar::before,
+.ide.glass-window .sidebar::after {
+  content: none !important;
+  display: none !important;
+}
+
+.ide.glass-window .sidebar-header,
+.ide.glass-window .explorer-toolbar,
+.ide.glass-window .folder-path {
+  background: transparent !important;
+}
+
+.ide.glass-window .file-tree {
+  padding: 0 8px 10px !important;
+}
+
+.ide.glass-window .tree-item {
+  border-radius: 9px !important;
+}
+
+.ide.glass-window .tree-item:hover,
+.ide.glass-window .tree-item.folder:hover,
+.ide.glass-window .tree-item.clickable:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+    color-mix(in srgb, var(--hover) 84%, transparent) !important;
+}
+
+.ide.glass-window .tree-item.active,
+.ide.glass-window .tree-item.folder.selected {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.035)),
+    color-mix(in srgb, var(--active) 80%, var(--accent) 20%) !important;
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--accent) 80%, white 20%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
