@@ -23,7 +23,7 @@
     align-items: center;
     justify-content: center;
     gap: 22px;
-    background: #0a0a0c;
+    background: var(--bg, #0a0a0c);
     opacity: 0;
     transition: opacity 0.55s ease-out;
     pointer-events: none;

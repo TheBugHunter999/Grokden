@@ -115,7 +115,7 @@
     retry as retryAppUpdate,
     restart as restartAppUpdate,
   } from "$lib/updater/updater-store.svelte";
-  import { applyWindowTransparency } from "$lib/window-transparency";
+  import { syncWindowGlass } from "$lib/window-transparency";
   import { bindViewportSync } from "$lib/viewport-sync";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
   import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
@@ -160,7 +160,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.10");
+  let appVersion = $state("0.1.11");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -186,12 +186,8 @@
 
   $effect(() => {
     const pct = settings.windowTransparency;
-    void applyWindowTransparency(pct);
-    const glass = pct < 100;
-    if (typeof document !== "undefined") {
-      document.documentElement.classList.toggle("glass-window", glass);
-      document.body.classList.toggle("glass-window", glass);
-    }
+    const themeStyle = `${buildThemeStyle(settings)};${buildExtraThemeVars(settings)}`;
+    void syncWindowGlass(pct, themeStyle);
   });
 
   let updateCheckStarted = $state(false);
@@ -2228,7 +2224,13 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: transparent !important;
   }
 
-  :global(html.glass-window #svelte) {
+  :global(html.opaque-window),
+  :global(body.opaque-window) {
+    background: var(--bg, #09090d) !important;
+  }
+
+  :global(html.glass-window #svelte),
+  :global(html.opaque-window #svelte) {
     background: transparent !important;
   }
 
@@ -2254,7 +2256,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--bg);
     color: var(--text-dim);
     overflow: hidden;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: color 0.2s ease;
   }
 
   .ide.glass-window {
@@ -2276,12 +2278,14 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.glass-window .terminal-body,
   .ide.glass-window .workspace-body,
   .ide.glass-window .view-pane {
-    backdrop-filter: blur(var(--glass-blur, 24px)) saturate(1.45);
-    -webkit-backdrop-filter: blur(var(--glass-blur, 24px)) saturate(1.45);
+    backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
+    -webkit-backdrop-filter: blur(var(--glass-blur, 12px)) saturate(1.2);
   }
 
   .ide.glass-window .editor-input-wrap,
-  .ide.glass-window .gutter,
+  .ide.glass-window .editor-scroll,
+  .ide.glass-window .line-numbers,
+  .ide.glass-window .code-textarea,
   .ide.glass-window :global(.terminal-host .xterm-screen),
   .ide.glass-window :global(.terminal-host .xterm-viewport) {
     background: transparent !important;

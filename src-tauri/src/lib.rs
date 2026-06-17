@@ -10,6 +10,7 @@ use std::fs;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::path::Path;
+use std::sync::Mutex;
 use tauri::{AppHandle, LogicalSize, Manager, State, window::Color};
 use terminal::TerminalState;
 
@@ -307,6 +308,8 @@ fn app_ready(app: AppHandle) -> Result<(), String> {
     transition_to_workspace(app)
 }
 
+static LAST_WINDOW_TRANSPARENCY: Mutex<Option<u8>> = Mutex::new(None);
+
 #[tauri::command]
 fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
     let Some(window) = app.get_webview_window("main") else {
@@ -314,18 +317,26 @@ fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
     };
 
     let percent = percent.clamp(50, 100);
+    if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
+        if *last == Some(percent) {
+            return Ok(());
+        }
+        *last = Some(percent);
+    }
+
     let opaque_bg = Color::from((9_u8, 9, 13, 255));
     let transparent_bg = Color::from((0_u8, 0, 0, 0));
 
     if percent >= 100 {
+        // Paint opaque webview first so clearing vibrancy never exposes a blank frame.
         window
             .set_background_color(Some(opaque_bg))
             .map_err(|e| e.to_string())?;
         #[cfg(target_os = "windows")]
         {
             use window_vibrancy::{clear_acrylic, clear_mica};
-            let _ = clear_mica(&window);
             let _ = clear_acrylic(&window);
+            let _ = clear_mica(&window);
         }
         return Ok(());
     }
@@ -343,11 +354,12 @@ fn set_window_transparency(app: AppHandle, percent: u8) -> Result<(), String> {
 
         // strength 0 at 100% slider, 1 at 50% — more strength = more see-through
         let strength = (100.0 - percent as f32) / 50.0;
-        let tint_alpha = (55.0 + (1.0 - strength) * 90.0).round().clamp(30.0, 160.0) as u8;
+        let tint_alpha = (18.0 + (1.0 - strength) * 130.0).round().clamp(18.0, 175.0) as u8;
 
-        if apply_mica(&window, Some(true)).is_err() {
-            apply_acrylic(&window, Some((14, 14, 20, tint_alpha)))
-                .map_err(|e| format!("apply_acrylic failed: {e}"))?;
+        // Acrylic blurs live desktop content; Mica only tints wallpaper.
+        if apply_acrylic(&window, Some((9_u8, 9, 13, tint_alpha))).is_err() {
+            apply_mica(&window, Some(false))
+                .map_err(|e| format!("apply_mica failed: {e}"))?;
         }
     }
 

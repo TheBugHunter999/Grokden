@@ -187,7 +187,7 @@
         <button type="button" class="toggle" class:on={settings.enableAnimations} role="switch" aria-checked={settings.enableAnimations} aria-label="Enable Animations" onclick={() => (settings.enableAnimations = !settings.enableAnimations)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("appearance", "Window Transparency opacity glass effect")}
-      <div class="row"><div class="meta"><div class="label">Window Transparency</div><div class="desc">Frosted glass effect — lower values show more of the desktop behind Grokden.</div></div>
+      <div class="row"><div class="meta"><div class="label">Window Opacity</div><div class="desc">50% = frosted glass (desktop visible). 100% = fully solid. Lower the value to see through the window.</div></div>
         <div class="stepper"><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency - 5, 50, 100))}>-</button><span>{settings.windowTransparency}%</span><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency + 5, 50, 100))}>+</button></div></div>
     {/if}
     {#if showRow("appearance", "Sidebar Position left right panel explorer")}

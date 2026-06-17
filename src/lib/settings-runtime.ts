@@ -305,9 +305,9 @@ export function glassSurfaceMix(percent: number): {
   const strength = (100 - pct) / 50;
   return {
     strength,
-    panelAlpha: 0.4 - strength * 0.28,
-    editorAlpha: 0.3 - strength * 0.2,
-    blurPx: Math.round(18 + strength * 22),
+    panelAlpha: 0.06 + (1 - strength) * 0.34,
+    editorAlpha: 0.04 + (1 - strength) * 0.26,
+    blurPx: Math.round(4 + (1 - strength) * 14),
   };
 }
 

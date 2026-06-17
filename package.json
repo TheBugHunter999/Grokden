@@ -1,6 +1,6 @@
 {
   "name": "grokden",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Grokden — a desktop workspace for Grok CLI",
   "type": "module",
   "scripts": {
