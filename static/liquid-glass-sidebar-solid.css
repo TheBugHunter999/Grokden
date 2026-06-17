@@ -1,0 +1,80 @@
+/*
+  Hard fix for the remaining Explorer stripe artifact.
+  Explorer/Search/SCM are navigation panels, so readability wins over glass.
+  This intentionally makes the sidebar solid instead of transparent/frosted.
+*/
+
+.ide.glass-window .sidebar,
+.ide.glass-window .sidebar *,
+.ide.glass-window .explorer-panel,
+.ide.glass-window .file-tree,
+.ide.glass-window .virtual-viewport,
+.ide.glass-window .virtual-spacer,
+.ide.glass-window .virtual-window {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.ide.glass-window .sidebar {
+  background: #11121a !important;
+  background-image: none !important;
+  border-radius: 0 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.085) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.035),
+    1px 0 0 rgba(0, 0, 0, 0.45) !important;
+  overflow: hidden !important;
+}
+
+.ide.glass-window .workspace-panels.sidebar-right .sidebar {
+  border-right: 0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.085) !important;
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.035),
+    -1px 0 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+.ide.glass-window .explorer-panel,
+.ide.glass-window .sidebar-header,
+.ide.glass-window .workspace-section,
+.ide.glass-window .file-tree,
+.ide.glass-window .virtual-viewport,
+.ide.glass-window .virtual-spacer,
+.ide.glass-window .virtual-window {
+  background: #11121a !important;
+  background-image: none !important;
+}
+
+.ide.glass-window .sidebar-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045) !important;
+}
+
+.ide.glass-window .workspace-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035) !important;
+}
+
+.ide.glass-window .tree-virtual-row,
+.ide.glass-window .tree-item {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+.ide.glass-window .tree-item:hover,
+.ide.glass-window .tree-item.folder:hover,
+.ide.glass-window .tree-item.clickable:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+  box-shadow: none !important;
+}
+
+.ide.glass-window .tree-item.active,
+.ide.glass-window .tree-item.folder.selected {
+  background: rgba(137, 116, 255, 0.16) !important;
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 82%, white 18%) !important;
+}
+
+.ide.glass-window .sidebar .git-status,
+.ide.glass-window .sidebar .tree-status,
+.ide.glass-window .sidebar .status,
+.ide.glass-window .sidebar .file-status {
+  background: transparent !important;
+}
