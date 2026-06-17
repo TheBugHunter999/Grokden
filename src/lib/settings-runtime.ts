@@ -304,11 +304,13 @@ export function glassSurfaceMix(percent: number): {
 } {
   const pct = clamp(percent, 50, 100);
   const strength = (100 - pct) / 50;
+  const editorAlpha = 0.28 + (1 - strength) * 0.533;
+  const panelAlpha = Math.min(editorAlpha + 0.1, 0.92);
   return {
     strength,
-    panelAlpha: 0.86 - strength * 0.26,
-    editorAlpha: 0.78 - strength * 0.32,
-    railAlpha: 0.84 - strength * 0.24,
+    panelAlpha,
+    editorAlpha,
+    railAlpha: Math.min(panelAlpha - 0.02, 0.9),
     borderAlpha: 0.28 + (1 - strength) * 0.22,
   };
 }

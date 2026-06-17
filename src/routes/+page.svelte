@@ -161,7 +161,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.12");
+  let appVersion = $state("0.1.13");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -2282,20 +2282,33 @@ This is a very long debug log line that demonstrates whether the debug console w
     border-color: var(--glass-border);
   }
 
-  .ide.glass-window .editor-area,
-  .ide.glass-window .editor,
-  .ide.glass-window .editor-surface,
-  .ide.glass-window .editor-scroll,
-  .ide.glass-window .editor-input-wrap,
-  .ide.glass-window .line-numbers,
-  .ide.glass-window .code-textarea,
-  .ide.glass-window .workspace-body,
-  .ide.glass-window .view-pane {
+  .ide.glass-window .editor-area {
     background: var(--glass-editor-bg);
   }
 
-  .ide.glass-window .terminal,
-  .ide.glass-window .terminal-header,
+  .ide.glass-window .workspace-body,
+  .ide.glass-window .editor-content,
+  .ide.glass-window .view-pane,
+  .ide.glass-window .editor,
+  .ide.glass-window .editor-scroll,
+  .ide.glass-window .editor-surface,
+  .ide.glass-window .editor-input-wrap,
+  .ide.glass-window .editor-placeholder,
+  .ide.glass-window .line-numbers,
+  .ide.glass-window .code-textarea {
+    background: transparent;
+  }
+
+  .ide.glass-window .terminal {
+    background: transparent;
+    border-color: var(--glass-border);
+  }
+
+  .ide.glass-window .terminal-header {
+    background: var(--glass-panel-bg);
+    border-color: var(--glass-border);
+  }
+
   .ide.glass-window .terminal-body {
     background: var(--glass-editor-bg);
   }
