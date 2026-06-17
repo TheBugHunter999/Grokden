@@ -80,7 +80,7 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version — Beta stable release. Windows desktop workspace for Grok CLI.
+Grokden $version - Beta stable release. Windows desktop workspace for Grok CLI.
 
 > **Beta:** This is a feature-complete early release. Expect bugs and rough edges; report issues on GitHub.
 
@@ -131,7 +131,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Beta stable release — expect bugs`n- Premium Grok theme and glass UI`n- Parallel agents, layout fixes, signed auto-updater`n- v0.2.1+ uses new updater signing key"
+    notes = "- Beta stable release - expect bugs`n- Premium Grok theme and glass UI`n- Parallel agents, layout fixes, signed auto-updater`n- v0.2.1+ uses new updater signing key"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
