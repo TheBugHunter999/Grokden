@@ -70,8 +70,13 @@
   }
 
   function handleAgentSpawned(agentId: string, label: string, terminalId: number) {
-    agentTerminalIds = { ...agentTerminalIds, [agentId]: terminalId };
+    const oldTid = agentTerminalIds[agentId];
+    if (oldTid != null && oldTid !== terminalId) {
+      detachParser(oldTid);
+      removeSessionsByTerminalId(oldTid);
+    }
     agentDetachFns[agentId]?.();
+    agentTerminalIds = { ...agentTerminalIds, [agentId]: terminalId };
     const session = createActivitySession(label, terminalId);
     agentDetachFns = { ...agentDetachFns, [agentId]: attachParser(session.id, terminalId) };
     markAgentRunning(agentId);
@@ -79,15 +84,19 @@
 
   function cleanupAgentActivity(agentId: string) {
     const tid = agentTerminalIds[agentId];
+    agentDetachFns[agentId]?.();
     if (tid != null) {
       detachParser(tid);
       removeSessionsByTerminalId(tid);
     }
-    agentDetachFns[agentId]?.();
     const { [agentId]: _t, ...restT } = agentTerminalIds;
     const { [agentId]: _d, ...restD } = agentDetachFns;
     agentTerminalIds = restT;
     agentDetachFns = restD;
+  }
+
+  function beginAgentRelaunch(agentId: string) {
+    cleanupAgentActivity(agentId);
   }
 
   function launchAgents() {
@@ -97,6 +106,10 @@
       return;
     }
     launching = true;
+
+    if (agents.length > 0) {
+      for (const agent of agents) beginAgentRelaunch(agent.id);
+    }
 
     const count = agents.length > 0 ? agents.length : clampAgentCount(agentCount);
     if (agents.length === 0) {
@@ -115,6 +128,7 @@
       onGrokCliMissing?.();
       return;
     }
+    beginAgentRelaunch(id);
     agents = agents.map((a) =>
       a.id === id ? { ...a, injectToken: a.injectToken + 1, status: "launching" as const } : a,
     );
@@ -259,7 +273,7 @@
   <div class="swarm-body">
     <section
       class="agent-grid"
-      style="grid-template-columns: repeat({gridLayout.cols}, minmax(480px, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
+      style="grid-template-columns: repeat({gridLayout.cols}, minmax(0, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
     >
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
@@ -281,9 +295,11 @@
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
                 <span class="cell-title" title={agent.label}>{agent.label}</span>
-                <div class="cell-activity-slot">
-                  <AgentActivityCompact terminalId={agentTerminalIds[agent.id] ?? null} />
-                </div>
+                {#if agentTerminalIds[agent.id] != null && agent.status !== "launching"}
+                  <div class="cell-activity-slot">
+                    <AgentActivityCompact terminalId={agentTerminalIds[agent.id]} />
+                  </div>
+                {/if}
               </div>
               <div class="cell-head-actions">
                 <span class="cell-status" class:running={agent.status === "running"}>
@@ -295,7 +311,6 @@
             </div>
             <div class="cell-terminal">
               {#if agent.status !== "idle"}
-                {#key `${agent.id}:${agent.injectToken}`}
                   <Terminal
                     {settings}
                     {cwd}
@@ -303,11 +318,11 @@
                     visible={true}
                     compact={true}
                     enableHelper={false}
+                    restartBeforeInject={true}
                     injectToken={agent.injectToken}
                     injectCommand={grokCommand || buildAgentGrokCommand(settings)}
                     onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
                   />
-                {/key}
               {:else}
                 <div class="cell-idle">Press Launch or ↻ to start this agent</div>
               {/if}
@@ -518,13 +533,14 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    min-width: 0;
+    min-width: min(100%, 280px);
     background: var(--bg);
     overflow: hidden;
   }
 
   .agent-cell.span-cols {
     grid-column: 1 / -1;
+    grid-row: 2;
   }
   .agent-cell.active { box-shadow: inset 0 0 0 1px var(--accent-mid); }
 
@@ -589,8 +605,8 @@
   }
 
   .cell-activity-slot {
-    width: 140px;
-    flex-shrink: 0;
+    max-width: 140px;
+    flex: 0 1 140px;
     min-width: 0;
     overflow: hidden;
   }
@@ -618,7 +634,20 @@
   }
   .empty-hint { font-size: 11px; color: var(--text-mute); font-style: italic; text-align: center; }
 
-  .cell-terminal { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .cell-terminal {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .cell-terminal > :global(.terminal-wrap) {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+  }
   .cell-idle {
     flex: 1;
     display: grid;

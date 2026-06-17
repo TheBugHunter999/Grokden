@@ -7,6 +7,7 @@ export {
   bindSessionTerminal,
   setActiveActivitySession,
   pushActivityStep,
+  touchActivitySession,
   markSessionDone,
   clearActivitySessions,
   removeActivitySession,

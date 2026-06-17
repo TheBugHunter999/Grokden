@@ -19,6 +19,13 @@
 
   let section = $state("appearance");
   let filter = $state("");
+  let scrollEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    section;
+    filter;
+    scrollEl?.scrollTo({ top: 0 });
+  });
 
   let sectionLabel = $derived(
     filter.trim() ? "Search Results" : settingsNav.find((s) => s.id === section)?.label ?? "Settings",
@@ -57,10 +64,15 @@
     {/each}
   </nav>
 
-  <div class="settings-content">
-    <div class="settings-tabs"><span class="st-tab active">User</span><span class="st-tab">Grokden</span></div>
-    <h2 class="settings-title">{sectionLabel}</h2>
-    <p class="settings-note">Preferences are saved locally on this device.</p>
+  <div class="settings-main">
+    <header class="settings-header">
+      <div class="settings-tabs"><span class="st-tab active">User</span><span class="st-tab">Grokden</span></div>
+      <h2 class="settings-title">{sectionLabel}</h2>
+      <p class="settings-note">Preferences are saved locally on this device.</p>
+    </header>
+
+    <div class="settings-scroll dark-scrollbar" bind:this={scrollEl}>
+    <div class="settings-inner">
 
     {#if !filter.trim() && section === "general"}<div class="group-title">General</div>{/if}
     {#if showRow("general", "Startup Behavior restore session welcome empty launch")}
@@ -619,15 +631,24 @@
       <div class="row"><div class="meta"><div class="label">Source Maps</div><div class="desc">Use source maps to map minified stack traces to original files.</div></div>
         <button type="button" class="toggle" class:on={settings.enableSourceMaps} role="switch" aria-checked={settings.enableSourceMaps} aria-label="Source Maps" onclick={() => (settings.enableSourceMaps = !settings.enableSourceMaps)}><span class="knob"></span></button></div>
     {/if}
+    </div>
+    </div>
   </div>
 </div>
 
 <style>
-  .settings-view { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+  .settings-view {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
 
   .settings-nav {
     width: 220px;
     flex-shrink: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -668,7 +689,38 @@
   .nav-item:hover { background: var(--hover); color: var(--text-dim); }
   .nav-item.active { background: var(--hover); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
 
-  .settings-content { flex: 1; overflow-y: auto; padding: 22px 34px 60px; max-width: 960px; width: 100%; margin: 0 auto; }
+  .settings-main {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .settings-header {
+    flex-shrink: 0;
+    padding: 22px 34px 0;
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+
+  .settings-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .settings-inner {
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 34px 32px;
+    box-sizing: border-box;
+  }
 
   .settings-tabs { display: flex; gap: 18px; margin-bottom: 18px; }
   .st-tab { font-size: 13px; color: var(--text-mute); padding-bottom: 4px; }
@@ -692,9 +744,10 @@
     gap: 24px;
     padding: 16px 0;
     border-bottom: 1px solid var(--border);
+    min-width: 0;
   }
-  .row.col { align-items: flex-start; }
-  .meta { min-width: 0; }
+  .row.col { align-items: flex-start; flex-wrap: wrap; }
+  .meta { flex: 1; min-width: 0; }
   .label { font-size: 13px; font-weight: 400; color: var(--text); }
   .desc { margin-top: 3px; font-size: 12px; color: var(--text-mute); }
 
@@ -754,7 +807,7 @@
   }
   .text-input:focus { border-color: var(--accent); }
   .text-input::placeholder { color: var(--text-mute); }
-  .text-input.wide { width: 280px; }
+  .text-input.wide { width: min(280px, 100%); }
 
   .stepper {
     flex-shrink: 0;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     getActivitySessions,
     getActiveActivitySession,
@@ -12,6 +12,26 @@
 
   const sessions = $derived(getActivitySessions());
   const active = $derived(getActiveActivitySession());
+  let stepListEl = $state<HTMLUListElement | undefined>();
+  let stickToBottom = $state(true);
+  let lastActiveId = $state<string | null>(null);
+
+  $effect(() => {
+    const id = active?.id ?? null;
+    if (id !== lastActiveId) {
+      lastActiveId = id;
+      stickToBottom = true;
+      if (stepListEl) stepListEl.scrollTop = 0;
+    }
+  });
+
+  $effect(() => {
+    const count = active?.steps.length ?? 0;
+    if (!stepListEl || count === 0 || !stickToBottom) return;
+    void tick().then(() => {
+      if (stepListEl) stepListEl.scrollTop = stepListEl.scrollHeight;
+    });
+  });
 
   onMount(() => {
     const timer = setInterval(() => pruneStaleSessions(), 8000);
@@ -84,7 +104,14 @@
         {/if}
       </div>
 
-      <ul class="step-list">
+      <ul
+        class="step-list dark-scrollbar"
+        bind:this={stepListEl}
+        onscroll={(e) => {
+          const el = e.currentTarget;
+          stickToBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+        }}
+      >
         {#if active.steps.length === 0}
           <li class="step-empty">
             {isSessionLive(active) ? "Waiting for agent output…" : "Agent is idle."}
@@ -120,7 +147,7 @@
     flex: 1;
     overflow: hidden;
     padding-top: 10px;
-    contain: layout paint style;
+    contain: layout style;
   }
   .empty {
     padding: 24px 14px;

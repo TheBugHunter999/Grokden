@@ -139,10 +139,10 @@ export async function resizeTerminal(options: TerminalResizeOptions): Promise<vo
 }
 
 export async function closeTerminal(options: TerminalCloseOptions): Promise<void> {
-  outputHandlers.delete(options.id);
-  outputTaps.delete(options.id);
-  outputBuffers.delete(options.id);
   await invoke("terminal_close", {
     id: options.id,
   });
+  outputHandlers.delete(options.id);
+  outputTaps.delete(options.id);
+  outputBuffers.delete(options.id);
 }

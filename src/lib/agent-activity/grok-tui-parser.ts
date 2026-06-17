@@ -21,15 +21,24 @@ function trimCmd(cmd: string): string {
   return sanitizeDisplayText(cmd, 48);
 }
 
+function normalizeLine(raw: string): string {
+  const idx = raw.lastIndexOf("\r");
+  return (idx >= 0 ? raw.slice(idx + 1) : raw).trim();
+}
+
 export class GrokTuiParser {
   private buffer = "";
   private lastTitle = "";
+  private consumedLines = 0;
   private ansi = new AnsiStripper();
 
   push(chunk: string): ParserEvent[] {
     this.buffer += this.ansi.push(chunk);
     if (this.buffer.length > 8000) {
-      this.buffer = this.buffer.slice(-4000);
+      const trimmed = this.buffer.slice(-4000);
+      const lineCount = trimmed.split("\n").length;
+      this.buffer = trimmed;
+      this.consumedLines = Math.max(0, this.consumedLines - lineCount);
     }
     return this.parseCompleteLines();
   }
@@ -37,22 +46,33 @@ export class GrokTuiParser {
   flush(): ParserEvent[] {
     const tail = this.ansi.flush();
     if (tail) this.buffer += tail;
-    return this.parseCompleteLines();
+    const events = this.parseCompleteLines();
+    if (!this.buffer.endsWith("\n")) {
+      const line = normalizeLine(this.buffer.split("\n").pop() ?? "");
+      const event = line.length >= 3 ? this.matchLine(line) : null;
+      if (event && event.type !== "step_end" && event.title !== this.lastTitle) {
+        this.lastTitle = event.title;
+        events.push(event);
+      }
+    }
+    return events;
   }
 
   private parseCompleteLines(): ParserEvent[] {
     const parts = this.buffer.split("\n");
-    const completeLines = this.buffer.endsWith("\n") ? parts : parts.slice(0, -1);
-    const lines = completeLines.slice(-12);
+    const completeCount = this.buffer.endsWith("\n") ? parts.length : parts.length - 1;
+    const events: ParserEvent[] = [];
 
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const event = this.matchLine(lines[i].trim());
+    for (let i = this.consumedLines; i < completeCount; i++) {
+      const event = this.matchLine(normalizeLine(parts[i] ?? ""));
       if (!event || event.type === "step_end") continue;
-      if (event.title === this.lastTitle) return [];
+      if (event.title === this.lastTitle) continue;
       this.lastTitle = event.title;
-      return [event];
+      events.push(event);
     }
-    return [];
+
+    this.consumedLines = completeCount;
+    return events;
   }
 
   private matchLine(line: string): ParserEvent | null {

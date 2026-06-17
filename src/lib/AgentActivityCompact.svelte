@@ -9,15 +9,16 @@
   );
 </script>
 
-<span
-  class="compact-activity"
-  class:approval={compact?.status === "awaiting_approval"}
-  class:empty={!compact?.currentTitle}
-  title={compact?.currentTitle ?? ""}
->
-  <span class="pip" class:live={compact && compact.status !== "done"}></span>
-  <span class="label">{compact?.currentTitle ?? ""}</span>
-</span>
+{#if compact?.currentTitle}
+  <span
+    class="compact-activity"
+    class:approval={compact.status === "awaiting_approval"}
+    title={compact.currentTitle}
+  >
+    <span class="pip" class:live={compact.status !== "done"}></span>
+    <span class="label">{compact.currentTitle}</span>
+  </span>
+{/if}
 
 <style>
   .compact-activity {
@@ -29,9 +30,6 @@
     font-size: 10px;
     color: var(--text-mute);
     overflow: hidden;
-  }
-  .compact-activity.empty {
-    visibility: hidden;
   }
   .compact-activity.approval { color: var(--warn); }
   .pip {

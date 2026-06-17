@@ -3,6 +3,7 @@ import {
   bindSessionTerminal,
   createActivitySession,
   pushActivityStep,
+  touchActivitySession,
 } from "$lib/agent-activity/activity-store";
 import { registerTerminalTap, type TerminalId } from "$lib/terminal-bridge";
 
@@ -35,6 +36,7 @@ function flushTap(sessionId: string, terminalId: TerminalId) {
   state.firstChunkAt = 0;
 
   const events = [...entry.parser.push(chunk), ...entry.parser.flush()];
+  touchActivitySession(sessionId);
   for (const event of events) {
     if (event.type === "step_start") {
       pushActivityStep(sessionId, {
@@ -79,9 +81,15 @@ export function startActivitySession(label: string, terminalId: number | null = 
 }
 
 export function attachParser(sessionId: string, terminalId: TerminalId): () => void {
+  detachParser(terminalId);
+
   const parser = new GrokTuiParser();
   parsers.set(terminalId, { sessionId, parser });
   bindSessionTerminal(sessionId, terminalId);
+
+  const prev = tapStates.get(terminalId);
+  if (prev?.timer) clearTimeout(prev.timer);
+  tapStates.set(terminalId, { pending: "", timer: undefined, firstChunkAt: 0 });
 
   return registerTerminalTap(terminalId, (chunk) => {
     const entry = parsers.get(terminalId);

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { fade, slide } from "svelte/transition";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import {
@@ -124,7 +124,7 @@
     trustFolder,
     type FolderTrustChoice,
   } from "$lib/folder-trust";
-  import { attachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
+  import { attachParser, detachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
   import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
   import { type MissionGoal, type ParallelAgent } from "$lib/agent-grid";
   import {
@@ -222,12 +222,13 @@
     { name: "Sam", color: "#6fcf97", line: 8, col: 4 },
   ];
 
+  // Only apply maximize/default height when the terminal opens — not on close,
+  // so slide/layout transitions and user-resized heights are preserved.
   $effect(() => {
     settings.panelDefaultLocation;
-    if (settings.panelMaximizeOnOpen && userTerminalOpen) {
+    if (!userTerminalOpen) return;
+    if (settings.panelMaximizeOnOpen) {
       terminalHeight = clampTerminalSize(panelMaximizedHeight(settings));
-    } else {
-      terminalHeight = clampTerminalSize(settings.panelDefaultSize);
     }
   });
 
@@ -382,6 +383,7 @@
 
   function hidePanelsOnEditorFocus() {
     if (shouldAutoHideTerminal(settings) && userTerminalOpen) {
+      blurActiveTerminal();
       setUserTerminalOpen(false);
     }
   }
@@ -737,8 +739,33 @@
     }
   }
 
+  function isTerminalHostInteractive(host: HTMLElement): boolean {
+    let node: HTMLElement | null = host;
+    while (node) {
+      if (
+        node.classList.contains("terminal-pane-hidden") ||
+        node.classList.contains("terminal-pane-display-hidden") ||
+        node.classList.contains("panel-hidden")
+      ) {
+        return false;
+      }
+      const style = getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      node = node.parentElement;
+    }
+    return true;
+  }
+
+  function blurActiveTerminal() {
+    const active = document.activeElement as HTMLElement | null;
+    active?.closest(".xterm")?.querySelector("textarea")?.blur();
+  }
+
   function isTerminalFocused(target: HTMLElement | null): boolean {
-    return !!target?.closest(".terminal-host, .xterm, [data-terminal-root]");
+    const host = target?.closest("[data-terminal-root]") as HTMLElement | null;
+    if (!host || !isTerminalHostInteractive(host)) return false;
+    if (view === "agents" && host.closest("footer.terminal")) return false;
+    return true;
   }
 
   function shouldIgnoreGlobalShortcut(target: HTMLElement | null): boolean {
@@ -965,6 +992,7 @@
   }
 
   function selectBottomPanelTab(tab: "terminal" | "output" | "problems" | "debug") {
+    if (tab !== "terminal") blurActiveTerminal();
     bottomPanelTab = tab;
     setUserTerminalOpen(true);
   }
@@ -1086,6 +1114,7 @@
     setUserSecondaryOpen(true);
     secondaryPanelTab = "activity";
     grokActivityDetach?.();
+    if (mainTerminalId != null) detachParser(mainTerminalId);
     const sessionId = startActivitySession("Grok CLI");
     if (mainTerminalId != null) {
       grokActivityDetach = attachParser(sessionId, mainTerminalId);
@@ -1116,6 +1145,7 @@
     }
     agentSwarmOpen = true;
     view = "agents";
+    blurActiveTerminal();
     setUserSidebarOpen(false);
     setUserSecondaryOpen(true);
     secondaryPanelTab = "activity";
@@ -1241,7 +1271,9 @@
     workspaceVisible = true;
     appPhase = "workspace";
     sessionHydrated = true;
-    scheduleLayoutReconcile(runLayoutReconcile);
+    await tick();
+    measureWorkspaceBody();
+    runLayoutReconcile();
   }
 
   function handleOnboardingComplete(updated: typeof settings) {
@@ -1500,7 +1532,7 @@
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
         <span class="rail-hint">Agent Swarm</span>
       </button>
-      <button type="button" class="rail-btn" class:active={terminalOpen} aria-label="Terminal" onclick={toggleTerminalPanel}>
+      <button type="button" class="rail-btn" class:active={userTerminalOpen} aria-label="Terminal" onclick={toggleTerminalPanel}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M4.5 8l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="rail-hint">Terminal</span>
       </button>
@@ -1633,23 +1665,41 @@
         </div>
       {/if}
 
+      {#key view}
       {#if view === "settings"}
-        <Settings bind:settings />
+        <div
+          class="view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+          <Settings bind:settings />
+        </div>
       {:else if view === "agents"}
-        <ParallelAgents
-          {settings}
-          cwd={folderPath}
-          bind:agents={parallelAgents}
-          bind:goals={missionGoals}
-          grokCommand={grokInjectCommand}
-          grokCliAvailable={grokCliAvailable}
-          onGrokCliMissing={() => {
-            settingsNotice = "Install Grok CLI first — see the welcome screen or README for install commands.";
-            closeAgentSwarm();
-          }}
-          onClose={closeAgentSwarm}
-        />
+        <div
+          class="view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+          <ParallelAgents
+            {settings}
+            cwd={folderPath}
+            bind:agents={parallelAgents}
+            bind:goals={missionGoals}
+            grokCommand={grokInjectCommand}
+            grokCliAvailable={grokCliAvailable}
+            onGrokCliMissing={() => {
+              settingsNotice = "Install Grok CLI first — see the welcome screen or README for install commands.";
+              closeAgentSwarm();
+            }}
+            onClose={closeAgentSwarm}
+          />
+        </div>
       {:else if activeTab}
+        <div
+          class="view-pane editor-view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
         {#if breadcrumbs.length > 1}
           <nav class="breadcrumbs" aria-label="File path">
             {#each breadcrumbs as seg, i (seg + i)}
@@ -1717,8 +1767,14 @@
             </div>
           </div>
         </div>
+        </div>
       {:else}
-        <div class="editor-placeholder" in:fade>
+        <div
+          class="view-pane editor-view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+        <div class="editor-placeholder">
           <img class="welcome-logo" src="/favicon.png" alt="" width="56" height="56" />
           <h1 class="welcome-title">Grokden</h1>
           <p class="welcome-sub">A focused desktop IDE for building with AI.</p>
@@ -1762,7 +1818,9 @@
             <span><kbd>Ctrl</kbd>+<kbd>,</kbd> Settings</span>
           </div>
         </div>
+        </div>
       {/if}
+      {/key}
       </div>
     </main>
 
@@ -1805,7 +1863,7 @@
     {/if}
     </div>
 
-    {#if terminalOpen || settings.terminalPersistSession}
+    {#if userTerminalOpen || settings.terminalPersistSession}
       <footer
         class="terminal"
         class:panel-side={settings.panelDefaultLocation !== "bottom"}
@@ -1830,22 +1888,34 @@
           <button type="button" class="terminal-close" aria-label="Hide terminal" onclick={() => setUserTerminalOpen(false)}>Close</button>
         </div>
         <div class="terminal-body">
-          <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "terminal"}>
+          <div
+            class="terminal-pane"
+            class:terminal-pane-hidden={bottomPanelTab !== "terminal"}
+            aria-hidden={bottomPanelTab !== "terminal"}
+          >
             <Terminal
               {settings}
               cwd={folderPath}
-              sessionActive={terminalOpen && !folderRestricted}
-              visible={terminalOpen && bottomPanelTab === "terminal" && !folderRestricted}
+              sessionActive={userTerminalOpen && !folderRestricted}
+              visible={terminalOpen && bottomPanelTab === "terminal" && view !== "agents" && !folderRestricted}
               enableHelper={false}
               injectToken={grokInjectToken}
               injectCommand={folderRestricted ? null : grokInjectCommand}
               onSpawned={handleMainTerminalSpawned}
             />
           </div>
-          <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "output"}>
+          <div
+            class="terminal-pane"
+            class:terminal-pane-display-hidden={bottomPanelTab !== "output"}
+            aria-hidden={bottomPanelTab !== "output"}
+          >
             <pre class="output-panel">{outputPanelLines.join("\n")}</pre>
           </div>
-          <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "problems"}>
+          <div
+            class="terminal-pane"
+            class:terminal-pane-display-hidden={bottomPanelTab !== "problems"}
+            aria-hidden={bottomPanelTab !== "problems"}
+          >
             <div class="problems-panel">
               {#if workspaceLintIssues.length === 0}
                 <div class="panel-stub">No problems detected.</div>
@@ -1863,7 +1933,11 @@
               {/if}
             </div>
           </div>
-          <div class="terminal-pane" class:terminal-pane-hidden={bottomPanelTab !== "debug"}>
+          <div
+            class="terminal-pane"
+            class:terminal-pane-display-hidden={bottomPanelTab !== "debug"}
+            aria-hidden={bottomPanelTab !== "debug"}
+          >
             <div class="debug-panel">
               <div class="debug-toolbar">
                 <span class="debug-status" class:paused={debugPaused}>
@@ -2303,7 +2377,9 @@ This is a very long debug log line that demonstrates whether the debug console w
   .rail-spacer { flex: 1; }
 
   .sidebar {
-    width: var(--sidebar-width, 280px);
+    /* Fixed 280px (SIDEBAR_DEFAULT): reconcile zeroes --sidebar-width on close while
+       the slide-outro is still running, which collapsed this element and caused flicker. */
+    width: 280px;
     flex-shrink: 0;
     background: var(--panel);
     border-right: 1px solid var(--border);
@@ -2443,6 +2519,15 @@ This is a very long debug log line that demonstrates whether the debug console w
     min-height: 0;
     min-width: 0;
     width: 100%;
+    overflow: hidden;
+  }
+
+  .view-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
     overflow: hidden;
   }
 
@@ -2890,6 +2975,10 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
   }
 
+  .ide:not(.no-animations) .terminal:not(.panel-hidden) {
+    transition: height 0.2s ease, width 0.2s ease;
+  }
+
   .workspace-body.terminal-docked-side.panel-left {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -3027,6 +3116,7 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .output-panel {
     flex: 1;
+    min-height: 0;
     margin: 0;
     padding: 12px 16px;
     font-family: "Cascadia Mono", Consolas, monospace;
@@ -3126,6 +3216,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
   .terminal-pane {
     grid-area: 1 / 1;
+    position: relative;
     min-height: 0;
     min-width: 0;
     display: flex;
@@ -3140,7 +3231,11 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
   }
 
-  .terminal-pane:not(.terminal-pane-hidden) {
+  .terminal-pane.terminal-pane-display-hidden {
+    display: none;
+  }
+
+  .terminal-pane:not(.terminal-pane-hidden):not(.terminal-pane-display-hidden) {
     z-index: 1;
   }
 
@@ -3208,7 +3303,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .secondary-sidebar {
-    width: var(--secondary-width, 240px);
+    width: 240px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -3467,7 +3562,14 @@ This is a very long debug log line that demonstrates whether the debug console w
     61%, 100% { caret-color: transparent; }
   }
 
-  .problems-panel { padding: 8px 0; overflow: auto; height: 100%; }
+  .problems-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    overflow: auto;
+  }
   .problems-list { list-style: none; margin: 0; padding: 0; }
   .problem-item { border-bottom: 1px solid var(--border); }
   .problem-link {

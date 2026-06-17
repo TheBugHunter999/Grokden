@@ -4,8 +4,9 @@ export type TermDims = { cols: number; rows: number };
 
 export const DEFAULT_RESIZE_DEBOUNCE_MS = 120;
 
-const ALT_ENTER_RE = /\x1b\[[0-9;]*\?1049h|\x1b\[[0-9;]*\?47h/;
-const ALT_LEAVE_RE = /\x1b\[[0-9;]*\?1049l|\x1b\[[0-9;]*\?47l/;
+const ALT_ENTER_RE = /\x1b\[[0-9;]*\??1049h|\x1b\[[0-9;]*\??47h/g;
+const ALT_LEAVE_RE = /\x1b\[[0-9;]*\??1049l|\x1b\[[0-9;]*\??47l/g;
+const INCOMPLETE_ESC_RE = /\x1b(?:\[[0-9;?]*)?$/;
 
 export function debounce<T extends (...args: never[]) => void>(fn: T, ms: number): T {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -41,14 +42,41 @@ export function hostSizeChanged(
   return Math.abs(w - prevW) >= threshold || Math.abs(h - prevH) >= threshold;
 }
 
-/** Track alternate-screen (Grok TUI) from PTY output chunks. */
-export function parseAltScreenActive(chunk: string, wasActive: boolean): boolean {
+export type AltScreenParseResult = { active: boolean; carry: string };
+
+/** Track alternate-screen (Grok TUI) from PTY output, including split escape sequences. */
+export function parseAltScreenChunk(
+  chunk: string,
+  wasActive: boolean,
+  carry = "",
+): AltScreenParseResult {
+  const stream = carry + chunk;
   let active = wasActive;
-  for (const part of chunk.split(/(?=\x1b)/)) {
-    if (ALT_ENTER_RE.test(part)) active = true;
-    if (ALT_LEAVE_RE.test(part)) active = false;
+  let parseable = stream;
+  let nextCarry = "";
+
+  const lastEsc = stream.lastIndexOf("\x1b");
+  if (lastEsc >= 0) {
+    const tail = stream.slice(lastEsc);
+    if (INCOMPLETE_ESC_RE.test(tail)) {
+      parseable = stream.slice(0, lastEsc);
+      nextCarry = tail;
+    }
   }
-  return active;
+
+  for (const match of parseable.matchAll(ALT_ENTER_RE)) {
+    if (match) active = true;
+  }
+  for (const match of parseable.matchAll(ALT_LEAVE_RE)) {
+    if (match) active = false;
+  }
+
+  return { active, carry: nextCarry };
+}
+
+/** @deprecated Use parseAltScreenChunk — kept for stress tests. */
+export function parseAltScreenActive(chunk: string, wasActive: boolean): boolean {
+  return parseAltScreenChunk(chunk, wasActive).active;
 }
 
 /** Gate PTY resize: skip cache hits and defer while alt-screen is active. */

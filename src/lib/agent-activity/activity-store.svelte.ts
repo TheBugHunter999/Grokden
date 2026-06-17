@@ -22,7 +22,9 @@ const STALE_MS = 45_000;
 
 export function isSessionLive(session: AgentSession): boolean {
   if (session.status === "done" || session.status === "error") return false;
-  if (session.status === "idle") return false;
+  if (session.status === "idle") {
+    return session.terminalId != null && now() - session.updatedAt < STALE_MS;
+  }
   if (session.steps.length > 0) return true;
   if (session.terminalId == null) return false;
   return now() - session.updatedAt < STALE_MS;
@@ -70,8 +72,16 @@ export function createActivitySession(label: string, terminalId: number | null =
     steps: [],
   };
   sessions = new Map(sessions).set(session.id, session);
-  activeSessionId = session.id;
+  if (activeSessionId == null || !sessions.has(activeSessionId)) {
+    activeSessionId = session.id;
+  }
   return session;
+}
+
+export function touchActivitySession(sessionId: string): void {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  sessions = new Map(sessions).set(sessionId, { ...session, updatedAt: now() });
 }
 
 export function bindSessionTerminal(sessionId: string, terminalId: number): void {
@@ -100,6 +110,20 @@ export function pushActivityStep(
 
   const title = normalizeActivityTitle(partial.title);
   if (!title) return;
+
+  const last = session.steps[session.steps.length - 1];
+  if (last?.status === "running" && normalizeActivityTitle(last.title) === title) {
+    const updated: AgentSession = {
+      ...session,
+      currentTitle: title,
+      updatedAt: now(),
+    };
+    sessions = new Map(sessions).set(sessionId, updated);
+    if (updated.terminalId != null) {
+      syncTerminalCompact(updated.terminalId, title, session.status);
+    }
+    return;
+  }
 
   const closed = completeRunningStep(session);
   const step: AgentStep = {

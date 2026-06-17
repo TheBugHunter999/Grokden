@@ -24,7 +24,7 @@
     debounce,
     DEFAULT_RESIZE_DEBOUNCE_MS,
     hostSizeChanged,
-    parseAltScreenActive,
+    parseAltScreenChunk,
     proposeFitDims,
     shouldDeferFitForAltScreen,
     shouldNotifyPtyResize,
@@ -37,6 +37,7 @@
     visible = false,
     sessionActive = true,
     injectToken = 0,
+    restartBeforeInject = false,
     injectCommand = null,
     injectPrompt = null,
     promptDelayMs = 2800,
@@ -49,6 +50,7 @@
     visible?: boolean;
     sessionActive?: boolean;
     injectToken?: number;
+    restartBeforeInject?: boolean;
     injectCommand?: string | null;
     injectPrompt?: string | null;
     promptDelayMs?: number;
@@ -70,8 +72,13 @@
   let lastHostW = 0;
   let lastHostH = 0;
   let altScreenActive = false;
+  let altParseCarry = "";
   let pendingFitAfterAlt = false;
+  let pendingSettingsAfterAlt = false;
   let spawnInFlight = false;
+  let resizeSerial = 0;
+  let initialResizeDone = false;
+  let sessionLifecycleGen = 0;
 
   let bellEnabled = false;
   let suggestions = $derived(
@@ -131,7 +138,7 @@
       cursorBlink: true,
       convertEol: false,
       customGlyphs: true,
-      scrollOnUserInput: false,
+      scrollOnUserInput: true,
       smoothScrollDuration: 0,
       altClickMovesCursor: false,
       windowsPty: { backend: "conpty" as const },
@@ -145,6 +152,10 @@
 
   function applyTerminalSettings() {
     if (!term || !hostEl) return;
+    if (altScreenActive) {
+      pendingSettingsAfterAlt = true;
+      return;
+    }
 
     term.options.fontSize = compact
       ? Math.max(10, settings.terminalFontSize - 2)
@@ -155,10 +166,20 @@
     term.options.cursorStyle = xtermCursorStyle(settings.terminalCursorStyle);
     term.options.theme = buildXtermTheme(hostEl);
     term.options.customGlyphs = true;
+    term.options.scrollOnUserInput = !altScreenActive;
   }
 
-  async function fitAndResize(force = false) {
-    if (!visible || !fitAddon || !term || !terminalId || !hostEl) return;
+  function syncXtermFocus() {
+    if (!term || !mounted) return;
+    if (visible && sessionActive) return;
+    term.blur();
+  }
+
+  async function fitAndResize(opts: { forceFit?: boolean; forcePty?: boolean } = {}) {
+    const { forceFit = false, forcePty = false } = opts;
+    if (!fitAddon || !term || !terminalId || !hostEl) return;
+
+    const fitVisual = visible;
 
     const { clientWidth, clientHeight } = hostEl;
     if (clientWidth < 2 || clientHeight < 2) return;
@@ -169,33 +190,39 @@
     }
 
     if (
-      !force &&
+      !forceFit &&
       !hostSizeChanged(lastHostW, lastHostH, clientWidth, clientHeight)
     ) {
       return;
     }
 
-    lastHostW = clientWidth;
-    lastHostH = clientHeight;
+    const id = terminalId;
+    const generation = spawnGeneration;
+    const ticket = ++resizeSerial;
 
     try {
       fitAddon.fit();
       const dims = proposeFitDims(fitAddon);
       if (!dims) return;
-      if (
-        !shouldNotifyPtyResize(lastPtyDims, dims, { altScreenActive }) &&
-        !force
-      ) {
+      if (!shouldNotifyPtyResize(lastPtyDims, dims, { altScreenActive }) && !forcePty) {
         return;
       }
 
-      lastPtyDims = dims;
-      pendingFitAfterAlt = false;
       await resizeTerminal({
-        id: terminalId,
+        id,
         cols: dims.cols,
         rows: dims.rows,
       });
+
+      if (ticket !== resizeSerial || terminalId !== id || spawnGeneration !== generation) return;
+
+      lastPtyDims = dims;
+      lastHostW = clientWidth;
+      lastHostH = clientHeight;
+      pendingFitAfterAlt = false;
+      initialResizeDone = true;
+
+      if (fitVisual) term.refresh(0, term.rows - 1);
     } catch (error) {
       console.error("Terminal resize failed:", error);
     }
@@ -203,13 +230,32 @@
 
   function handleAltScreenTransition(chunk: string) {
     const prevAlt = altScreenActive;
-    altScreenActive = parseAltScreenActive(chunk, altScreenActive);
+    const parsed = parseAltScreenChunk(chunk, altScreenActive, altParseCarry);
+    altScreenActive = parsed.active;
+    altParseCarry = parsed.carry;
+
+    if (term) {
+      term.options.scrollOnUserInput = !altScreenActive;
+    }
+
     if (prevAlt && !altScreenActive) {
-      void fitAndResize(true);
+      if (pendingSettingsAfterAlt) {
+        pendingSettingsAfterAlt = false;
+        applyTerminalSettings();
+      }
+      if (pendingFitAfterAlt) {
+        pendingFitAfterAlt = false;
+        void fitAndResize({ forceFit: true, forcePty: true });
+      } else {
+        void fitAndResize({ forceFit: true, forcePty: true });
+      }
     }
   }
 
-  const scheduleFitAndResize = debounce(() => void fitAndResize(), DEFAULT_RESIZE_DEBOUNCE_MS);
+  const scheduleFitAndResize = debounce(
+    () => void fitAndResize({ forceFit: false, forcePty: false }),
+    DEFAULT_RESIZE_DEBOUNCE_MS,
+  );
 
   async function teardownSession(force = false) {
     if (!force && settings.terminalPersistSession) return;
@@ -296,7 +342,7 @@
       onSpawned?.(id);
 
       if (hostEl) await waitForHostLayout(hostEl);
-      await fitAndResize(true);
+      await fitAndResize({ forceFit: true, forcePty: true });
     } catch (error) {
       console.error("Terminal spawn failed:", error);
       term?.writeln("\r\n\x1b[31mFailed to spawn terminal.\x1b[0m");
@@ -307,6 +353,8 @@
 
   async function restartSession() {
     spawnGeneration += 1;
+    sessionLifecycleGen += 1;
+    initialResizeDone = false;
     await teardownSession();
     term?.clear();
     inputBuffer = "";
@@ -314,7 +362,9 @@
     lastHostW = 0;
     lastHostH = 0;
     altScreenActive = false;
+    altParseCarry = "";
     pendingFitAfterAlt = false;
+    pendingSettingsAfterAlt = false;
     await spawnSession();
   }
 
@@ -341,7 +391,7 @@
   }
 
   function handleTerminalData(data: string) {
-    if (!terminalId) return;
+    if (!terminalId || injectInFlight) return;
 
     let forward = data;
     if (enableHelper) {
@@ -393,6 +443,7 @@
     });
 
     resizeObserver = new ResizeObserver(() => {
+      if (!visible) return;
       scheduleFitAndResize();
     });
     resizeObserver.observe(hostEl);
@@ -432,13 +483,24 @@
     if (!mounted || !term) return;
 
     if (sessionActive) {
-      if (!terminalId) {
-        void spawnSession();
-      }
+      const gen = sessionLifecycleGen;
+      void (async () => {
+        if (!terminalId) await spawnSession();
+        if (sessionActive && !terminalId && gen === sessionLifecycleGen) {
+          await spawnSession();
+        }
+      })();
       return;
     }
 
+    sessionLifecycleGen += 1;
     void teardownSession(true);
+  });
+
+  $effect(() => {
+    visible;
+    sessionActive;
+    syncXtermFocus();
   });
 
   $effect(() => {
@@ -446,13 +508,11 @@
     let cancelled = false;
     const run = async () => {
       await waitForHostLayout(hostEl!);
-      if (!cancelled) await fitAndResize(true);
+      if (!cancelled) await fitAndResize({ forceFit: true, forcePty: false });
     };
     requestAnimationFrame(() => requestAnimationFrame(() => void run()));
-    const t1 = setTimeout(() => scheduleFitAndResize(), 80);
     return () => {
       cancelled = true;
-      clearTimeout(t1);
     };
   });
 
@@ -486,7 +546,12 @@
     injectInFlight = true;
     try {
       if (hostEl) await waitForHostLayout(hostEl);
-      await fitAndResize(true);
+      const deadline = Date.now() + 3000;
+      while (!initialResizeDone && Date.now() < deadline) {
+        await fitAndResize({ forceFit: true, forcePty: true });
+        if (!initialResizeDone) await new Promise((r) => setTimeout(r, 50));
+      }
+      await fitAndResize({ forceFit: true, forcePty: false });
       if (!(await runInjectedCommand(cmd, id))) return;
 
       const trimmed = prompt?.trim();
@@ -517,30 +582,35 @@
     const token = injectToken;
     const cmd = untrack(() => injectCommand?.trim());
     const prompt = untrack(() => injectPrompt);
+    const restart = restartBeforeInject;
     if (!token || token === lastInjectToken || !cmd || !sessionActive) return;
     if (injectInFlight) {
       pendingInjectToken = Math.max(pendingInjectToken, token);
       return;
     }
 
-    const generation = spawnGeneration;
-
-    const run = () => {
-      void runInjectSequence(cmd, prompt ?? null, token, generation);
+    const run = async () => {
+      let generation = spawnGeneration;
+      if (restart && lastInjectToken > 0) {
+        await restartSession();
+        generation = spawnGeneration;
+      }
+      await runInjectSequence(cmd, prompt ?? null, token, generation);
     };
 
     if (terminalId) {
-      run();
+      void run();
       return;
     }
 
+    const generation = spawnGeneration;
     const interval = setInterval(() => {
       if (terminalId && spawnGeneration === generation) {
         clearInterval(interval);
-        run();
+        void run();
       }
     }, 50);
-    const timeout = setTimeout(() => clearInterval(interval), 5000);
+    const timeout = setTimeout(() => clearInterval(interval), 15000);
 
     return () => {
       clearInterval(interval);
@@ -612,7 +682,6 @@
     overflow: hidden;
     padding: 12px 16px 14px;
     box-sizing: border-box;
-    scrollbar-gutter: stable;
   }
 
   .terminal-wrap.compact .terminal-host {
@@ -630,6 +699,17 @@
   }
 
   :global(.terminal-host .xterm-viewport) {
-    overflow-y: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(121, 121, 121, 0.35) transparent;
+  }
+
+  :global(.terminal-host .xterm-viewport::-webkit-scrollbar) {
+    width: 8px;
+  }
+
+  :global(.terminal-host .xterm-viewport::-webkit-scrollbar-thumb) {
+    background: rgba(121, 121, 121, 0.35);
+    border-radius: 4px;
   }
 </style>
