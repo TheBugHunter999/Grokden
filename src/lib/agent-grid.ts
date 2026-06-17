@@ -106,3 +106,18 @@ export function pickGoalsForNewAgents(
   const n = Math.max(0, Math.min(slotCount, MAX_AGENTS));
   return getUnassignedGoals(goals, agents).slice(0, n);
 }
+
+/** Prompt injected after Grok CLI starts when an agent slot is linked to a mission goal. */
+export function buildAgentInjectPrompt(
+  agent: ParallelAgent,
+  goals: MissionGoal[],
+): string | null {
+  if (!agent.goalId) return null;
+  const goal = goals.find((g) => g.id === agent.goalId);
+  if (!goal) return null;
+  const title = goal.title.trim();
+  const notes = goal.notes.trim();
+  if (!title && !notes) return null;
+  if (notes) return `${title}\n\n${notes}`.trim();
+  return title;
+}

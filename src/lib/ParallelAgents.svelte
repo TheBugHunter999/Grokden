@@ -10,6 +10,7 @@
   } from "$lib/agent-activity/activity-store";
   import {
     buildAgentGrokCommand,
+    buildAgentInjectPrompt,
     clampAgentCount,
     computeAgentGridLayout,
     shouldSpanAgentCell,
@@ -50,6 +51,13 @@
   let newGoalCategory = $state("Goals");
   let agentTerminalIds = $state<Record<string, number>>({});
   let agentDetachFns = $state<Record<string, () => void>>({});
+  let swarmBodyEl = $state<HTMLDivElement | undefined>();
+  let swarmBodyWidth = $state(0);
+  let goalsPanelOpen = $state(false);
+  let moreMenuOpen = $state(false);
+
+  const SWARM_COMPACT_WIDTH = 960;
+  let compactLayout = $derived(swarmBodyWidth > 0 && swarmBodyWidth < SWARM_COMPACT_WIDTH);
 
   let slotCount = $derived(agents.length || agentCount);
   let gridLayout = $derived(computeAgentGridLayout(slotCount));
@@ -218,6 +226,32 @@
     agentCount = clampAgentCount(agents.length);
   }
 
+  $effect(() => {
+    const el = swarmBodyEl;
+    if (!el) return;
+    swarmBodyWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      swarmBodyWidth = el.clientWidth;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
+
+  $effect(() => {
+    if (!compactLayout) goalsPanelOpen = false;
+  });
+
+  $effect(() => {
+    if (!moreMenuOpen) return;
+    const close = () => (moreMenuOpen = false);
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".toolbar-menu")) close();
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  });
+
   const statusLabel: Record<ParallelAgent["status"], string> = {
     idle: "Ready",
     launching: "Starting",
@@ -235,7 +269,7 @@
         <h2 class="swarm-heading">Parallel Agent Swarm</h2>
       </div>
     </div>
-    <div class="swarm-controls">
+    <div class="swarm-toolbar-main">
       <label class="count-control">
         <span class="count-label">Agents</span>
         <div class="count-stepper">
@@ -256,20 +290,60 @@
           >+</button>
         </div>
       </label>
-      <div class="swarm-actions">
-        <button type="button" class="swarm-btn" onclick={clearAgents} disabled={!agents.length}>Clear</button>
-        {#if agents.length > 0 && agents.length !== clampAgentCount(agentCount)}
-          <button type="button" class="swarm-btn" onclick={resizeAgentSlots}>Resize to {agentCount}</button>
-        {/if}
-        <button type="button" class="swarm-btn primary" class:busy={launching} onclick={launchAgents}>
-          {launchLabel}
+      <button type="button" class="swarm-btn primary" class:busy={launching} onclick={launchAgents}>
+        {launchLabel}
+      </button>
+      {#if compactLayout}
+        <button
+          type="button"
+          class="swarm-btn"
+          class:active={goalsPanelOpen}
+          aria-expanded={goalsPanelOpen}
+          onclick={() => (goalsPanelOpen = !goalsPanelOpen)}
+        >
+          Goals{#if goals.length > 0} ({goals.length}){/if}
         </button>
-        <button type="button" class="swarm-btn" onclick={onClose}>Back to Editor</button>
+      {/if}
+      <div class="toolbar-menu">
+        <button
+          type="button"
+          class="swarm-btn menu-trigger"
+          aria-expanded={moreMenuOpen}
+          aria-haspopup="menu"
+          onclick={() => (moreMenuOpen = !moreMenuOpen)}
+        >
+          More
+        </button>
+        {#if moreMenuOpen}
+          <div class="toolbar-menu-pop" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-item"
+              disabled={!agents.length}
+              onclick={() => { clearAgents(); moreMenuOpen = false; }}
+            >Clear agents</button>
+            {#if agents.length > 0 && agents.length !== clampAgentCount(agentCount)}
+              <button
+                type="button"
+                role="menuitem"
+                class="menu-item"
+                onclick={() => { resizeAgentSlots(); moreMenuOpen = false; }}
+              >Resize to {agentCount}</button>
+            {/if}
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-item"
+              onclick={() => { onClose(); moreMenuOpen = false; }}
+            >Back to Editor</button>
+          </div>
+        {/if}
       </div>
     </div>
   </header>
 
-  <div class="swarm-body">
+  <div class="swarm-body" class:compact-layout={compactLayout} bind:this={swarmBodyEl}>
     <section
       class="agent-grid"
       style="grid-template-columns: repeat({gridLayout.cols}, minmax(0, 1fr)); grid-template-rows: repeat({gridLayout.rows}, minmax(0, 1fr));"
@@ -327,6 +401,7 @@
                     restartBeforeInject={true}
                     injectToken={agent.injectToken}
                     injectCommand={grokCommand || buildAgentGrokCommand(settings)}
+                    injectPrompt={buildAgentInjectPrompt(agent, goals)}
                     onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
                   />
               {:else}
@@ -338,12 +413,23 @@
       {/if}
     </section>
 
-    <aside class="mission-board">
+    {#if compactLayout && goalsPanelOpen}
+      <button
+        type="button"
+        class="goals-backdrop"
+        aria-label="Close goals panel"
+        onclick={() => (goalsPanelOpen = false)}
+      ></button>
+    {/if}
+
+    <aside class="mission-board" class:open={!compactLayout || goalsPanelOpen}>
       <div class="board-head">
         <h3>Mission Board</h3>
         <span class="board-count">{goals.length} goals</span>
       </div>
-      <p class="board-note">Add goals for your own reference. Goals are not sent to agents automatically.</p>
+      <p class="board-note">
+        Label agent slots with goals. Assigned goal text is sent when you launch that agent; unassigned goals are notes only.
+      </p>
 
       <form class="add-goal" onsubmit={(e) => { e.preventDefault(); addGoal(); }}>
         <input
@@ -402,10 +488,11 @@
                       <button
                         type="button"
                         class="task-assign"
+                        title="Create a labeled agent slot. Goal text is sent when you launch that agent."
                         disabled={agents.length >= MAX_AGENTS || agents.some((a) => a.goalId === goal.id)}
                         onclick={() => assignGoalToSlot(goal)}
                       >
-                        Slot
+                        Label slot
                       </button>
                       <button type="button" class="goal-remove" title="Remove goal" onclick={() => removeGoal(goal.id)}>×</button>
                     </div>
@@ -442,17 +529,24 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 6px 12px;
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border);
     background: var(--panel-solid);
     flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow: hidden;
   }
 
   .swarm-title {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .swarm-logo {
@@ -464,11 +558,57 @@
 
   .swarm-heading { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); letter-spacing: 0.01em; }
 
-  .swarm-controls {
+  .swarm-toolbar-main {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .toolbar-menu {
+    position: relative;
+    flex: 0 0 auto;
+  }
+
+  .toolbar-menu-pop {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 30;
+    min-width: 148px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-solid);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  }
+
+  .menu-item {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: inherit;
+    text-align: left;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .menu-item:hover:not(:disabled) {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .menu-item:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .count-control {
@@ -504,9 +644,8 @@
     color: var(--text);
   }
 
-  .swarm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
   .swarm-btn {
+    flex: 0 0 auto;
     padding: 4px 10px;
     font-size: 11px;
     font-family: inherit;
@@ -521,9 +660,15 @@
   .swarm-btn:disabled { opacity: 0.35; cursor: default; }
   .swarm-btn.primary { color: var(--accent); border-color: var(--accent-mid); background: var(--accent-soft); }
   .swarm-btn.primary:hover:not(:disabled) { background: var(--accent-mid); }
+  .swarm-btn.active {
+    color: var(--accent);
+    border-color: var(--accent-mid);
+    background: var(--accent-soft);
+  }
   .swarm-btn.busy { opacity: 0.6; cursor: wait; }
 
   .swarm-body {
+    position: relative;
     flex: 1 1 0;
     display: flex;
     min-height: 0;
@@ -550,10 +695,10 @@
     flex-direction: column;
     min-height: 0;
     min-width: min(100%, 240px);
-    background: var(--bg);
+    background: var(--editor-bg, var(--bg));
     overflow: hidden;
     position: relative;
-    transition: box-shadow 0.2s ease, background 0.2s ease;
+    transition: background 0.15s ease;
   }
 
   .agent-cell.span-cols {
@@ -562,56 +707,36 @@
   }
 
   .agent-cell.active {
-    background: color-mix(in srgb, var(--accent-soft) 18%, var(--bg));
-    box-shadow:
-      inset 3px 0 0 var(--accent),
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
-      0 0 12px color-mix(in srgb, var(--accent) 22%, transparent),
-      0 0 24px color-mix(in srgb, var(--accent-mid) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .agent-cell.active .cell-head {
+    background: color-mix(in srgb, var(--accent-soft) 14%, var(--panel-solid));
   }
 
   .agent-cell.launching {
-    background: color-mix(in srgb, var(--accent-soft) 12%, var(--bg));
-    box-shadow:
-      inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
-      0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
-    animation: agent-launch-pulse 1.6s ease-in-out infinite;
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+
+  .agent-cell.launching .cell-head {
+    background: color-mix(in srgb, var(--accent-soft) 10%, var(--panel-solid));
   }
 
   .agent-cell.error {
-    background: color-mix(in srgb, var(--danger-soft) 20%, var(--bg));
-    box-shadow:
-      inset 3px 0 0 var(--danger),
-      inset 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent),
-      0 0 10px color-mix(in srgb, var(--danger) 18%, transparent);
+    box-shadow: inset 3px 0 0 var(--danger);
+  }
+
+  .agent-cell.error .cell-head {
+    background: color-mix(in srgb, var(--danger-soft) 16%, var(--panel-solid));
   }
 
   .agent-cell.done {
-    box-shadow:
-      inset 3px 0 0 var(--success),
-      inset 0 0 0 1px color-mix(in srgb, var(--success) 30%, transparent);
+    box-shadow: inset 3px 0 0 var(--success);
   }
 
   .agent-cell.empty-slot {
-    background: color-mix(in srgb, var(--panel) 40%, var(--bg));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
-  }
-
-  @keyframes agent-launch-pulse {
-    0%, 100% {
-      box-shadow:
-        inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent),
-        inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
-        0 0 12px color-mix(in srgb, var(--accent) 20%, transparent);
-    }
-    50% {
-      box-shadow:
-        inset 3px 0 0 var(--accent),
-        inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
-        0 0 20px color-mix(in srgb, var(--accent) 38%, transparent),
-        0 0 36px color-mix(in srgb, var(--accent-mid) 18%, transparent);
-    }
+    background: color-mix(in srgb, var(--panel) 35%, var(--editor-bg, var(--bg)));
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
   .cell-head {
@@ -682,9 +807,24 @@
     min-width: 0;
     overflow: hidden;
   }
-  .cell-status { font-size: 9px; color: var(--text-mute); flex-shrink: 0; white-space: nowrap; }
-  .cell-status.running { color: var(--success); }
+  .cell-status {
+    font-size: 9px;
+    color: var(--text-mute);
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--chip-bg);
+    border: 1px solid var(--border);
+  }
+  .cell-status.running { color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, var(--border)); }
   .cell-status.muted { opacity: 0.6; }
+
+  .agent-cell.launching .cell-status {
+    color: var(--accent);
+    border-color: var(--accent-mid);
+    background: var(--accent-soft);
+  }
 
   .cell-relaunch, .cell-close {
     padding: 0 4px;
@@ -731,13 +871,40 @@
   }
 
   .mission-board {
-    width: 240px;
+    width: min(240px, 32vw);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--border);
     background: var(--panel);
     min-height: 0;
+  }
+
+  .swarm-body.compact-layout .mission-board {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(280px, 88vw);
+    z-index: 20;
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.22);
+    display: none;
+  }
+
+  .swarm-body.compact-layout .mission-board.open {
+    display: flex;
+  }
+
+  .goals-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 15;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.35);
+    cursor: default;
   }
 
   .board-head {
@@ -865,7 +1032,5 @@
   }
   .model-tag.agent { color: var(--accent); }
 
-  .swarm.no-animations .agent-cell.launching {
-    animation: none;
-  }
+
 </style>

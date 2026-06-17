@@ -90,12 +90,17 @@
     return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
   }
 
+  function terminalSurfaceBg(el: HTMLElement): string {
+    return cssVar(el, "--editor-bg", cssVar(el, "--bg", "#09090d"));
+  }
+
   function buildXtermTheme(el: HTMLElement): ITheme {
+    const surface = terminalSurfaceBg(el);
     return {
-      background: cssVar(el, "--bg", "#09090d"),
+      background: surface,
       foreground: cssVar(el, "--text-dim", "#b4b4c4"),
       cursor: cssVar(el, "--accent", "#8b5cf6"),
-      cursorAccent: cssVar(el, "--bg", "#09090d"),
+      cursorAccent: surface,
       selectionBackground: cssVar(el, "--accent-mid", "rgba(139, 92, 246, 0.22)"),
       selectionForeground: cssVar(el, "--text", "#e4e4ec"),
       black: "#1c1c26",
@@ -682,7 +687,7 @@
   }
 
   .terminal-wrap.compact .terminal-host {
-    padding: 0 2px 0 0;
+    padding: 4px 6px;
   }
 
   .terminal-host.has-helper {
