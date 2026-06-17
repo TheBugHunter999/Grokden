@@ -124,12 +124,9 @@
   }
 
   function createTerminalOptions(el: HTMLElement) {
-    const fontSize = compact
-      ? Math.max(10, settings.terminalFontSize - 2)
-      : settings.terminalFontSize;
     return {
-      fontSize,
-      lineHeight: compact ? 1.05 : 1,
+      fontSize: settings.terminalFontSize,
+      lineHeight: 1,
       letterSpacing: 0,
       scrollback: settings.terminalScrollback,
       cursorStyle: xtermCursorStyle(settings.terminalCursorStyle),
@@ -680,12 +677,12 @@
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: 12px 16px 14px;
+    padding: 4px 6px 4px 4px;
     box-sizing: border-box;
   }
 
   .terminal-wrap.compact .terminal-host {
-    padding: 6px 8px 8px;
+    padding: 0 2px 0 0;
   }
 
   .terminal-host.has-helper {

@@ -1775,7 +1775,7 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
         <div class="editor-placeholder">
-          <img class="welcome-logo" src="/favicon.png" alt="" width="56" height="56" />
+          <img class="welcome-logo" src="/favicon.png" alt="" width="40" height="40" />
           <h1 class="welcome-title">Grokden</h1>
           <p class="welcome-sub">A focused desktop IDE for building with AI.</p>
           {#if grokCliAvailable === false}
@@ -2101,26 +2101,29 @@ This is a very long debug log line that demonstrates whether the debug console w
   :global(html, body) {
     margin: 0;
     padding: 0;
+    position: fixed;
+    inset: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    background: #09090d;
+    background: var(--bg, #09090d);
   }
 
   :global(#svelte) {
-    width: 100%;
-    height: 100%;
+    position: fixed;
+    inset: 0;
     overflow: hidden;
   }
 
   .ide {
+    /* Pin to the webview box — do not use 100dvh/height:100% (WebView2 on Windows
+       can size those slightly short of the client area and expose body #09090d). */
     position: fixed;
     inset: 0;
     display: flex;
     flex-direction: column;
-    width: 100%;
-    height: 100%;
     background: var(--bg);
     color: var(--text-dim);
     overflow: hidden;
@@ -2241,7 +2244,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--text-dim);
   }
 
-  .workspace { display: flex; flex: 1; min-height: 0; min-width: 0; }
+  .workspace { display: flex; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 
   .workspace-body {
     position: relative;
@@ -2257,6 +2260,11 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .workspace-body.terminal-docked-bottom {
     grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .workspace-body.terminal-docked-bottom > .terminal:not(.panel-side) {
+    grid-row: 2;
+    grid-column: 1;
   }
 
   .workspace-body.terminal-docked-side {
@@ -2540,7 +2548,7 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .tab-bar {
     display: flex;
-    height: 38px;
+    height: 32px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -2715,27 +2723,28 @@ This is a very long debug log line that demonstrates whether the debug console w
     min-width: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 28px 32px;
     overflow: auto;
     color: var(--text-mute);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
   .welcome-logo {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   }
   .welcome-title {
-    margin: 12px 0 0;
-    font-size: 24px;
+    margin: 8px 0 0;
+    font-size: 18px;
     font-weight: 500;
     letter-spacing: 0.01em;
     color: var(--text);
   }
-  .welcome-sub { margin: 0 0 14px; font-size: 13px; color: var(--text-mute); }
+  .welcome-sub { margin: 0 0 10px; font-size: 12px; color: var(--text-mute); }
   .welcome-grok-checking {
     margin: 0 0 14px;
     font-size: 12px;
@@ -2817,10 +2826,10 @@ This is a very long debug log line that demonstrates whether the debug console w
     opacity: 0.6;
     cursor: default;
   }
-  .welcome-actions { display: flex; gap: 10px; margin-bottom: 18px; }
+  .welcome-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .welcome-btn {
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: 5px 12px;
+    font-size: 11px;
     font-weight: 400;
     font-family: inherit;
     color: var(--text-mute);
@@ -2833,7 +2842,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .welcome-btn:hover { color: var(--text); border-color: var(--text-mute); background: var(--hover); }
   .welcome-btn.primary { color: var(--accent); border-color: var(--accent-mid); }
   .welcome-btn.primary:hover { color: var(--text); background: var(--accent-soft); }
-  .welcome-hints { display: flex; gap: 16px; font-size: 11px; color: var(--text-mute); flex-wrap: wrap; justify-content: center; }
+  .welcome-hints { display: flex; gap: 12px; font-size: 10px; color: var(--text-mute); flex-wrap: wrap; }
   .welcome-hints kbd {
     font-family: inherit;
     font-size: 10px;
@@ -2963,8 +2972,6 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .terminal {
-    grid-row: 2;
-    grid-column: 1;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -3073,8 +3080,8 @@ This is a very long debug log line that demonstrates whether the debug console w
   .terminal-header {
     display: flex;
     align-items: center;
-    height: 34px;
-    padding: 0 4px;
+    height: 28px;
+    padding: 0 2px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -3085,9 +3092,9 @@ This is a very long debug log line that demonstrates whether the debug console w
   .terminal-tab {
     display: flex;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 12px;
     height: 100%;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-mute);
     background: none;
     border: none;

@@ -27,7 +27,7 @@
     gap: 5px;
     width: 100%;
     min-width: 0;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-mute);
     overflow: hidden;
   }

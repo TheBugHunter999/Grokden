@@ -227,13 +227,12 @@
   };
 </script>
 
-<div class="swarm">
+<div class="swarm" class:no-animations={!settings.enableAnimations}>
   <header class="swarm-toolbar">
     <div class="swarm-title">
-      <img class="swarm-logo" src="/favicon.png" alt="" width="28" height="28" />
+      <img class="swarm-logo" src="/favicon.png" alt="" width="20" height="20" />
       <div>
         <h2 class="swarm-heading">Parallel Agent Swarm</h2>
-        <p class="swarm-sub">Launch Grok terminals side-by-side. Type your own prompts in each panel.</p>
       </div>
     </div>
     <div class="swarm-controls">
@@ -290,7 +289,14 @@
         {/each}
       {:else}
         {#each agents as agent, i (agent.id)}
-          <div class="agent-cell" class:active={agent.status === "running"} class:span-cols={shouldSpanAgentCell(slotCount, i)}>
+          <div
+            class="agent-cell"
+            class:active={agent.status === "running"}
+            class:launching={agent.status === "launching"}
+            class:error={agent.status === "error"}
+            class:done={agent.status === "done"}
+            class:span-cols={shouldSpanAgentCell(slotCount, i)}
+          >
             <div class="cell-head">
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
@@ -433,10 +439,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 6px 12px;
     border-bottom: 1px solid var(--border);
-    background: var(--panel);
+    background: var(--panel-solid);
     flex-shrink: 0;
     flex-wrap: wrap;
   }
@@ -444,18 +450,17 @@
   .swarm-title {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
 
   .swarm-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
     flex-shrink: 0;
   }
 
-  .swarm-heading { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
-  .swarm-sub { margin: 2px 0 0; font-size: 11px; color: var(--text-mute); }
+  .swarm-heading { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); letter-spacing: 0.01em; }
 
   .swarm-controls {
     display: flex;
@@ -479,8 +484,8 @@
     overflow: hidden;
   }
   .count-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border: none;
     background: var(--chip-bg);
     color: var(--text-dim);
@@ -500,8 +505,8 @@
   .swarm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .swarm-btn {
-    padding: 5px 12px;
-    font-size: 12px;
+    padding: 4px 10px;
+    font-size: 11px;
     font-family: inherit;
     color: var(--text-dim);
     background: transparent;
@@ -533,23 +538,77 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    min-width: min(100%, 280px);
+    min-width: min(100%, 240px);
     background: var(--bg);
     overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
   }
 
   .agent-cell.span-cols {
     grid-column: 1 / -1;
     grid-row: 2;
   }
-  .agent-cell.active { box-shadow: inset 0 0 0 1px var(--accent-mid); }
+
+  .agent-cell.active {
+    background: color-mix(in srgb, var(--accent-soft) 18%, var(--bg));
+    box-shadow:
+      inset 3px 0 0 var(--accent),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent) 22%, transparent),
+      0 0 24px color-mix(in srgb, var(--accent-mid) 12%, transparent);
+  }
+
+  .agent-cell.launching {
+    background: color-mix(in srgb, var(--accent-soft) 12%, var(--bg));
+    box-shadow:
+      inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+      0 0 16px color-mix(in srgb, var(--accent) 28%, transparent);
+    animation: agent-launch-pulse 1.6s ease-in-out infinite;
+  }
+
+  .agent-cell.error {
+    background: color-mix(in srgb, var(--danger-soft) 20%, var(--bg));
+    box-shadow:
+      inset 3px 0 0 var(--danger),
+      inset 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent),
+      0 0 10px color-mix(in srgb, var(--danger) 18%, transparent);
+  }
+
+  .agent-cell.done {
+    box-shadow:
+      inset 3px 0 0 var(--success),
+      inset 0 0 0 1px color-mix(in srgb, var(--success) 30%, transparent);
+  }
+
+  .agent-cell.empty-slot {
+    background: color-mix(in srgb, var(--panel) 40%, var(--bg));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent);
+  }
+
+  @keyframes agent-launch-pulse {
+    0%, 100% {
+      box-shadow:
+        inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+        0 0 12px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
+    50% {
+      box-shadow:
+        inset 3px 0 0 var(--accent),
+        inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+        0 0 20px color-mix(in srgb, var(--accent) 38%, transparent),
+        0 0 36px color-mix(in srgb, var(--accent-mid) 18%, transparent);
+    }
+  }
 
   .cell-head {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 28px;
-    padding: 0 8px;
+    gap: 5px;
+    height: 22px;
+    padding: 0 6px;
     background: var(--panel-solid);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
@@ -593,8 +652,10 @@
   }
 
   .cell-index { font-size: 10px; color: var(--text-mute); width: 14px; }
+  .empty-slot .cell-head { height: 20px; }
+
   .cell-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     color: var(--text);
     flex: 1 1 auto;
@@ -628,11 +689,11 @@
   .empty-body {
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 8px 10px;
   }
-  .empty-hint { font-size: 11px; color: var(--text-mute); font-style: italic; text-align: center; }
+  .empty-hint { font-size: 10px; color: var(--text-mute); font-family: var(--code-font, monospace); }
 
   .cell-terminal {
     flex: 1 1 0;
@@ -650,17 +711,16 @@
   }
   .cell-idle {
     flex: 1;
-    display: grid;
-    place-items: center;
-    font-size: 12px;
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 10px;
+    font-size: 10px;
     color: var(--text-mute);
-    font-style: italic;
-    padding: 12px;
-    text-align: center;
+    font-family: var(--code-font, monospace);
   }
 
   .mission-board {
-    width: 300px;
+    width: 240px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -673,15 +733,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 14px 6px;
+    padding: 8px 10px 4px;
     flex-shrink: 0;
   }
-  .board-head h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); }
-  .board-count { font-size: 10px; color: var(--text-mute); }
+  .board-head h3 { margin: 0; font-size: 11px; font-weight: 500; color: var(--text); }
+  .board-count { font-size: 9px; color: var(--text-mute); }
   .board-note {
     margin: 0;
-    padding: 0 14px 10px;
-    font-size: 10px;
+    padding: 0 10px 6px;
+    font-size: 9px;
     color: var(--text-mute);
     line-height: 1.4;
     flex-shrink: 0;
@@ -690,16 +750,16 @@
   .add-goal {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 0 10px 10px;
+    gap: 4px;
+    padding: 0 8px 8px;
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
   }
   .goal-input, .goal-textarea, .goal-edit {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px;
-    font-size: 11px;
+    padding: 4px 6px;
+    font-size: 10px;
     font-family: inherit;
     color: var(--text);
     background: var(--hover);
@@ -722,7 +782,7 @@
   .add-goal-btn:disabled { opacity: 0.35; cursor: default; }
   .add-goal-btn:hover:not(:disabled) { background: var(--accent-mid); }
 
-  .board-scroll { flex: 1; overflow-y: auto; padding: 10px; }
+  .board-scroll { flex: 1; overflow-y: auto; padding: 6px 8px; }
   .board-empty {
     margin: 0;
     padding: 12px 4px;
@@ -779,8 +839,8 @@
 
   .board-footer {
     display: flex;
-    gap: 6px;
-    padding: 10px 14px;
+    gap: 4px;
+    padding: 6px 10px;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -793,4 +853,8 @@
     border: 1px solid var(--border);
   }
   .model-tag.agent { color: var(--accent); }
+
+  .swarm.no-animations .agent-cell.launching {
+    animation: none;
+  }
 </style>
