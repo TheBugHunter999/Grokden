@@ -1,3 +1,91 @@
+.grokden-menu-bar,
+.grokden-layout-controls {
+  user-select: none;
+}
+
+.grokden-menu-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 32px;
+  margin: 0 8px 0 8px;
+  z-index: 25;
+}
+
+.grokden-menu {
+  position: relative;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.grokden-menu-trigger {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text, #f4f4f7);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: default;
+}
+
+.grokden-menu-trigger:hover,
+.grokden-menu-open .grokden-menu-trigger {
+  background: rgba(255,255,255,0.075);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.grokden-menu-list {
+  position: fixed;
+  top: 30px;
+  left: auto;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  background: rgba(20, 21, 30, 0.98);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.42);
+  display: none;
+  z-index: 50000;
+}
+
+.grokden-menu-open .grokden-menu-list {
+  display: block;
+}
+
+.grokden-menu-item {
+  width: 100%;
+  min-height: 27px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim, #d4d4df);
+  font: inherit;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.grokden-menu-item:hover {
+  color: var(--text, #fff);
+  background: color-mix(in srgb, var(--accent, #8b5cf6) 22%, rgba(255,255,255,0.07));
+}
+
+.grokden-menu-item kbd {
+  color: var(--text-mute, #8f8b91);
+  font: inherit;
+  font-size: 11px;
+}
+
 .grokden-layout-controls {
   flex: 0 0 auto;
   display: flex;
@@ -6,7 +94,6 @@
   height: 32px;
   margin: 0 8px 0 6px;
   padding: 0 2px;
-  user-select: none;
 }
 
 .grokden-layout-btn {
@@ -50,9 +137,21 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.13);
 }
 
+.ide.grokden-activity-rail-hidden .activity-rail {
+  display: none !important;
+}
+
+.ide.glass-window .grokden-menu-trigger:hover,
+.ide.glass-window .grokden-menu-open .grokden-menu-trigger,
 .ide.glass-window .grokden-layout-btn:hover {
   background: rgba(255,255,255,0.055);
   border-color: rgba(255,255,255,0.12);
+}
+
+.ide.glass-window .grokden-menu-list {
+  background: rgba(17, 18, 27, 0.98);
+  border-color: rgba(255,255,255,0.13);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .ide.glass-window .grokden-layout-btn.active {
@@ -61,9 +160,16 @@
   border-color: color-mix(in srgb, var(--accent, #8b5cf6) 52%, rgba(255,255,255,0.12));
 }
 
+@media (max-width: 900px) {
+  .grokden-menu-trigger {
+    padding: 0 6px;
+  }
+}
+
 @media (max-width: 720px) {
   .grokden-layout-btn-settings,
-  .grokden-layout-btn-secondary {
+  .grokden-layout-btn-secondary,
+  .grokden-menu:nth-child(n + 5) {
     display: none;
   }
 }
