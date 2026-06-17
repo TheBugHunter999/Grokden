@@ -75,13 +75,17 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version - Windows desktop workspace for Grok CLI.
+Grokden $version - Stable release. Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- CSS frosted glass (transparent window + backdrop-filter blur)
-- Redesigned update screen (centered hero, release notes, progress)
-- Fix in-app updater (latest.json manifest + clearer check status)
+- Complete Grokden branding (window title, UI labels, legacy storage migration)
+- Premium Grok theme with polished dark glass UI
+- CSS backdrop-filter glassmorphism and liquid-glass layout polish
+- Fix panel/terminal toggle freeze (MutationObserver storm)
+- Layout bridge for reliable terminal panel toggling
+- README welcome-screen screenshot and onboarding showcase
+- In-app auto-updater with signed NSIS updates
 
 ## Requirements
 
@@ -120,7 +124,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Material window glass (Windows acrylic + glass pane look)`n- Redesigned update screen with centered hero and release notes`n- Fix in-app updater manifest and check status"
+    notes = "- Stable Grokden branding and Premium Grok theme`n- Glassmorphism UI polish and layout controls`n- Panel/terminal toggle stability fixes`n- Signed in-app auto-updater"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{
