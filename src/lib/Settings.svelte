@@ -187,7 +187,7 @@
         <button type="button" class="toggle" class:on={settings.enableAnimations} role="switch" aria-checked={settings.enableAnimations} aria-label="Enable Animations" onclick={() => (settings.enableAnimations = !settings.enableAnimations)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("appearance", "Window Transparency opacity glass effect")}
-      <div class="row"><div class="meta"><div class="label">Glass Strength</div><div class="desc">100% = solid window. 50% = strongest see-through glass over the desktop. Text and controls stay readable.</div></div>
+      <div class="row"><div class="meta"><div class="label">Glass Strength</div><div class="desc">100% = solid window. 50% = strongest frosted glass (transparent window + CSS blur). Text and controls stay readable.</div></div>
         <div class="stepper"><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency - 5, 50, 100))}>-</button><span>{settings.windowTransparency}%</span><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency + 5, 50, 100))}>+</button></div></div>
     {/if}
     {#if showRow("appearance", "Sidebar Position left right panel explorer")}

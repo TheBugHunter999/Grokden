@@ -3,37 +3,30 @@ import { glassSurfaceMix, type GlassSurfaceMix } from "./settings-runtime";
 
 const GLASS_VAR_KEYS = [
   "--glass-strength",
+  "--glass-blur",
   "--glass-chrome-bg",
   "--glass-panel-bg",
   "--glass-editor-bg",
   "--glass-rail-bg",
   "--glass-border",
-  "--glass-highlight",
-  "--glass-edge",
   "--glass-shadow",
-  "--glass-shine",
 ] as const;
-
-const NATIVE_TINT_RGB = { r: 9, g: 9, b: 13 } as const;
 
 export type GlassDebugState = {
   percent: number;
   cssAlphas: GlassSurfaceMix | null;
-  nativeEffect: string;
-  nativeTint: { r: number; g: number; b: number; a: number };
+  effect: string;
 };
 
 type NativeTransparencyResult = {
   effect: string;
-  tint_alpha: number;
   percent: number;
 };
 
 const DEFAULT_DEBUG: GlassDebugState = {
   percent: 100,
   cssAlphas: null,
-  nativeEffect: "opaque",
-  nativeTint: { ...NATIVE_TINT_RGB, a: 255 },
+  effect: "opaque",
 };
 
 let chain: Promise<void> = Promise.resolve();
@@ -44,13 +37,6 @@ export function getGlassDebugState(): Readonly<GlassDebugState> {
   return glassDebugState;
 }
 
-function nativeTintFromResult(native: NativeTransparencyResult | null, percent: number) {
-  if (!native) {
-    return { ...NATIVE_TINT_RGB, a: percent >= 100 ? 255 : 0 };
-  }
-  return { ...NATIVE_TINT_RGB, a: native.tint_alpha };
-}
-
 function setGlassDebugState(
   percent: number,
   cssAlphas: GlassSurfaceMix | null,
@@ -59,8 +45,7 @@ function setGlassDebugState(
   glassDebugState = {
     percent,
     cssAlphas,
-    nativeEffect: native?.effect ?? (percent >= 100 ? "opaque" : "unknown"),
-    nativeTint: nativeTintFromResult(native, percent),
+    effect: native?.effect ?? (percent >= 100 ? "opaque" : "css-blur"),
   };
 }
 
@@ -121,9 +106,9 @@ function applyGlassDom(glass: boolean, glassStyle: string): void {
 }
 
 /**
- * Keep native and DOM glass state in sync without flicker.
- * Opaque (100%): native layer commits before CSS removes glass.
- * Glass (<100%): DOM glass classes/vars first, then native acrylic.
+ * Keep window background and DOM glass state in sync.
+ * Opaque (100%): native opaque webview bg before CSS removes glass.
+ * Glass (<100%): transparent webview + CSS backdrop-filter frosted panels.
  */
 export async function syncWindowGlass(percent: number, glassStyle: string): Promise<void> {
   const glass = percent < 100;

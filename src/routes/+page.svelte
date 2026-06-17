@@ -161,7 +161,7 @@
   let settings = $state(initialSettings);
   let appPhase = $state<"launch" | "onboarding" | "workspace">("launch");
   let workspaceVisible = $state(false);
-  let appVersion = $state("0.1.15");
+  let appVersion = $state("0.1.16");
   let updateIndicatorState = $derived.by((): UpdateIndicatorState => {
     if (updateState.phase === "available") return "available";
     if (
@@ -1534,10 +1534,10 @@
 <svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
 
 {#if settings.devTools && settings.windowTransparency < 100}
-  <div class="glass-debug-pill" aria-label="Glass debug" title="Native glass effect and CSS surface alphas">
-    {glassDebug.percent}% · {glassDebug.nativeEffect} · tint α{glassDebug.nativeTint.a}
+  <div class="glass-debug-pill" aria-label="Glass debug" title="CSS backdrop-filter glass settings">
+    {glassDebug.percent}% · {glassDebug.effect}
     {#if glassDebug.cssAlphas}
-      · panel {glassDebug.cssAlphas.panelAlpha.toFixed(2)} · editor {glassDebug.cssAlphas.editorAlpha.toFixed(2)} · chrome {glassDebug.cssAlphas.chromeAlpha.toFixed(2)}
+      · blur {glassDebug.cssAlphas.blurPx}px · editor α{glassDebug.cssAlphas.editorAlpha.toFixed(2)} · panel α{glassDebug.cssAlphas.panelAlpha.toFixed(2)}
     {/if}
   </div>
 {/if}
@@ -2274,46 +2274,6 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .ide.glass-window {
     background: transparent;
-    isolation: isolate;
-  }
-
-  .ide.glass-window > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .ide.glass-window::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    border-radius: inherit;
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.14)),
-      inset 0 1px 1px rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.08)),
-      0 10px 36px rgba(0, 0, 0, calc(var(--glass-strength, 0) * 0.16));
-  }
-
-  .ide.glass-window::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      repeating-linear-gradient(
-        90deg,
-        transparent 0,
-        transparent 1px,
-        rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.018)) 1px,
-        transparent 2px
-      ),
-      radial-gradient(
-        ellipse 110% 42% at 50% 0%,
-        rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.07)),
-        transparent 68%
-      );
   }
 
   .ide.glass-window .topbar,
@@ -2321,22 +2281,32 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.glass-window .tab-bar,
   .ide.glass-window :global(.window-chrome) {
     background: var(--glass-chrome-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
     border-color: var(--glass-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.1));
   }
 
   .ide.glass-window .activity-rail {
     background: var(--glass-rail-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
     border-color: var(--glass-border);
   }
 
   .ide.glass-window .sidebar,
   .ide.glass-window .secondary-sidebar {
     background: var(--glass-panel-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
     border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow, none);
   }
 
   .ide.glass-window .editor-area {
     background: var(--glass-editor-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
   }
 
   .ide.glass-window .workspace-body,
@@ -2359,11 +2329,15 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .ide.glass-window .terminal-header {
     background: var(--glass-panel-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
     border-color: var(--glass-border);
   }
 
   .ide.glass-window .terminal-body {
     background: var(--glass-editor-bg);
+    backdrop-filter: blur(var(--glass-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
   }
 
   .topbar {

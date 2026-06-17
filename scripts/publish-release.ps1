@@ -79,7 +79,7 @@ Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- Material window glass (acrylic blur + glass pane styling)
+- CSS frosted glass (transparent window + backdrop-filter blur)
 - Redesigned update screen (centered hero, release notes, progress)
 - Fix in-app updater (latest.json manifest + clearer check status)
 

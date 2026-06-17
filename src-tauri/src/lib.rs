@@ -311,34 +311,12 @@ fn app_ready(app: AppHandle) -> Result<(), String> {
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 struct WindowTransparencyResult {
     effect: String,
-    tint_alpha: u8,
     percent: u8,
 }
 
 static LAST_WINDOW_TRANSPARENCY: Mutex<Option<WindowTransparencyResult>> = Mutex::new(None);
 
-#[cfg(target_os = "windows")]
-fn acrylic_tint_alpha(percent: u8) -> u8 {
-    let p = percent as f32;
-    let alpha = if p <= 65.0 {
-        lerp_f32(50.0, 0.0, 65.0, 12.0, p)
-    } else if p <= 80.0 {
-        lerp_f32(65.0, 12.0, 80.0, 32.0, p)
-    } else if p <= 95.0 {
-        lerp_f32(80.0, 32.0, 95.0, 100.0, p)
-    } else {
-        lerp_f32(95.0, 100.0, 99.0, 120.0, p)
-    };
-    alpha.round().clamp(0.0, 255.0) as u8
-}
-
-fn lerp_f32(a: f32, va: f32, b: f32, vb: f32, x: f32) -> f32 {
-    if (b - a).abs() < f32::EPSILON {
-        return va;
-    }
-    va + (x - a) / (b - a) * (vb - va)
-}
-
+/// Toggle webview background only — frosted glass is handled in CSS via backdrop-filter.
 #[tauri::command]
 fn set_window_transparency(
     app: AppHandle,
@@ -354,99 +332,34 @@ fn set_window_transparency(
         }
     }
 
-    let Some(window) = app.get_webview_window("main") else {
-        let result = WindowTransparencyResult {
-            effect: if percent >= 100 {
-                "opaque".to_string()
-            } else {
-                "acrylic".to_string()
-            },
-            tint_alpha: if percent >= 100 {
-                255
-            } else {
-                #[cfg(target_os = "windows")]
-                {
-                    acrylic_tint_alpha(percent)
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    0
-                }
-            },
-            percent,
-        };
-        return Ok(result);
-    };
-
     let opaque_bg = Color::from((9_u8, 9, 13, 255));
     let transparent_bg = Color::from((0_u8, 0, 0, 0));
 
+    let result = if percent >= 100 {
+        WindowTransparencyResult {
+            effect: "opaque".to_string(),
+            percent,
+        }
+    } else {
+        WindowTransparencyResult {
+            effect: "css-blur".to_string(),
+            percent,
+        }
+    };
+
+    let Some(window) = app.get_webview_window("main") else {
+        return Ok(result);
+    };
+
     if percent >= 100 {
-        // Paint opaque webview first so clearing vibrancy never exposes a blank frame.
         window
             .set_background_color(Some(opaque_bg))
             .map_err(|e| e.to_string())?;
-        #[cfg(target_os = "windows")]
-        {
-            use window_vibrancy::{clear_acrylic, clear_mica};
-            let _ = clear_acrylic(&window);
-            let _ = clear_mica(&window);
-        }
-        let result = WindowTransparencyResult {
-            effect: "opaque".to_string(),
-            tint_alpha: 255,
-            percent,
-        };
-        if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
-            *last = Some(result.clone());
-        }
-        return Ok(result);
+    } else {
+        window
+            .set_background_color(Some(transparent_bg))
+            .map_err(|e| e.to_string())?;
     }
-
-    window
-        .set_background_color(Some(transparent_bg))
-        .map_err(|e| e.to_string())?;
-
-    let result = {
-        #[cfg(target_os = "windows")]
-        {
-            use window_vibrancy::{apply_acrylic, apply_mica, clear_acrylic, clear_mica};
-
-            let _ = clear_acrylic(&window);
-            let _ = clear_mica(&window);
-
-            let tint_alpha = acrylic_tint_alpha(percent);
-
-            // Acrylic blurs live desktop content; Mica only tints wallpaper.
-            if apply_acrylic(&window, Some((9_u8, 9, 13, tint_alpha))).is_ok() {
-                WindowTransparencyResult {
-                    effect: "acrylic".to_string(),
-                    tint_alpha,
-                    percent,
-                }
-            } else {
-                eprintln!(
-                    "WARNING: Acrylic unavailable at {percent}% transparency — falling back to Mica. \
-                     Mica only tints the desktop wallpaper and will NOT match the requested see-through level."
-                );
-                apply_mica(&window, Some(false))
-                    .map_err(|e| format!("apply_mica failed: {e}"))?;
-                WindowTransparencyResult {
-                    effect: "mica".to_string(),
-                    tint_alpha,
-                    percent,
-                }
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            WindowTransparencyResult {
-                effect: "opaque".to_string(),
-                tint_alpha: 0,
-                percent,
-            }
-        }
-    };
 
     if let Ok(mut last) = LAST_WINDOW_TRANSPARENCY.lock() {
         *last = Some(result.clone());
