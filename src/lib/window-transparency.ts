@@ -4,12 +4,21 @@ import { glassSurfaceMix, type GlassSurfaceMix } from "./settings-runtime";
 const GLASS_VAR_KEYS = [
   "--glass-strength",
   "--glass-blur",
+  "--glass-blur-chrome",
+  "--glass-blur-panel",
+  "--glass-blur-editor",
   "--glass-chrome-bg",
   "--glass-panel-bg",
   "--glass-editor-bg",
   "--glass-rail-bg",
   "--glass-border",
+  "--glass-highlight",
+  "--glass-sheen",
+  "--glass-contrast-edge",
+  "--glass-panel-ring",
   "--glass-shadow",
+  "--glass-specular",
+  "--glass-glow",
 ] as const;
 
 export type GlassDebugState = {
@@ -115,10 +124,13 @@ export async function syncWindowGlass(percent: number, glassStyle: string): Prom
   const cssAlphas = glass ? glassSurfaceMix(percent) : null;
 
   if (!glass) {
+    // Going OPAQUE: apply native bg first, wait for it to take effect, THEN remove glass class
     const native = await applyWindowTransparency(percent);
+    await new Promise(resolve => setTimeout(resolve, 50));
     applyGlassDom(false, glassStyle);
     setGlassDebugState(percent, null, native);
   } else {
+    // Going GLASS: add glass class first, then apply native transparency
     applyGlassDom(true, glassStyle);
     const native = await applyWindowTransparency(percent);
     setGlassDebugState(percent, cssAlphas, native);

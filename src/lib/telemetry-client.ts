@@ -9,7 +9,11 @@ export type TelemetryStorageInfo = {
 };
 
 export async function setTelemetryEnabled(enabled: boolean): Promise<void> {
-  await invoke("telemetry_set_enabled", { enabled });
+  try {
+    await invoke("telemetry_set_enabled", { enabled });
+  } catch {
+    // Browser preview has no Tauri invoke bridge; telemetry must never block UX.
+  }
 }
 
 export async function recordTelemetryEvent(
@@ -32,5 +36,9 @@ export async function getTelemetryStorageInfo(): Promise<TelemetryStorageInfo | 
 }
 
 export async function clearTelemetry(): Promise<void> {
-  await invoke("telemetry_clear");
+  try {
+    await invoke("telemetry_clear");
+  } catch {
+    // Browser preview has no Tauri invoke bridge; telemetry must never block UX.
+  }
 }

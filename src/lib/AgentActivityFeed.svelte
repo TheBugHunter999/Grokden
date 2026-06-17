@@ -71,7 +71,7 @@
   {#if sessions.length === 0}
     <div class="empty">
       <p class="empty-title">No active agents</p>
-      <p class="empty-hint">Launch Grok CLI or start a parallel agent swarm to see live steps here.</p>
+      <p class="empty-hint">Launch Grok CLI or start a parallel agent session to see live steps here.</p>
     </div>
   {:else}
     {#if sessions.length > 1}

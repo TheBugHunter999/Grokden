@@ -325,44 +325,44 @@ export function glassSurfaceMix(percent: number): GlassSurfaceMix {
 
   const blurPx = Math.round(
     lerpGlassKeyframes(pct, [
-      [50, 32],
-      [65, 26],
-      [80, 18],
-      [95, 8],
+      [50, 78],
+      [65, 62],
+      [80, 42],
+      [95, 20],
       [100, 0],
     ]),
   );
 
   const editorAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.12],
-    [65, 0.28],
-    [80, 0.55],
-    [95, 0.82],
-    [100, 0.94],
+    [50, 0.06],
+    [65, 0.12],
+    [80, 0.28],
+    [95, 0.70],
+    [100, 0.95],
   ]);
 
   const panelAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.28],
-    [65, 0.42],
-    [80, 0.65],
-    [95, 0.88],
+    [50, 0.12],
+    [65, 0.22],
+    [80, 0.44],
+    [95, 0.78],
     [100, 0.97],
   ]);
 
   const chromeAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.38],
-    [65, 0.5],
-    [80, 0.72],
-    [95, 0.9],
-    [100, 0.95],
+    [50, 0.16],
+    [65, 0.30],
+    [80, 0.50],
+    [95, 0.82],
+    [100, 0.96],
   ]);
 
   const borderAlpha = lerpGlassKeyframes(pct, [
-    [50, 0.2],
-    [65, 0.25],
-    [80, 0.35],
-    [95, 0.44],
-    [100, 0.5],
+    [50, 0.30],
+    [65, 0.34],
+    [80, 0.40],
+    [95, 0.48],
+    [100, 0.55],
   ]);
 
   return {
@@ -379,20 +379,35 @@ export function glassSurfaceMix(percent: number): GlassSurfaceMix {
 export function buildGlassThemeVars(settings: AppSettings): string {
   if (settings.windowTransparency >= 100) return "";
 
-  const theme = THEMES[settings.theme] ?? THEMES["grokden-dark"];
+  const theme = THEMES[settings.theme] ?? THEMES["codex"];
   const { strength, blurPx, chromeAlpha, panelAlpha, editorAlpha, borderAlpha } = glassSurfaceMix(
     settings.windowTransparency,
   );
 
+  const blurChrome = Math.round(blurPx * 1.2);
+  const blurPanel = blurPx;
+  const blurEditor = Math.round(blurPx * 0.9);
+  const glowAlpha = 0.03 + strength * 0.055;
+  const specularAlpha = 0.05 + strength * 0.16;
+
   return [
-    `--glass-strength:${strength}`,
+    `--glass-strength:${strength.toFixed(3)}`,
     `--glass-blur:${blurPx}px`,
+    `--glass-blur-chrome:${blurChrome}px`,
+    `--glass-blur-panel:${blurPanel}px`,
+    `--glass-blur-editor:${blurEditor}px`,
     `--glass-chrome-bg:${hexToRgba(theme.panelSolid, chromeAlpha)}`,
     `--glass-panel-bg:${hexToRgba(theme.panelSolid, panelAlpha)}`,
     `--glass-editor-bg:${hexToRgba(theme.editorBg, editorAlpha)}`,
     `--glass-rail-bg:${hexToRgba(theme.panel, panelAlpha)}`,
-    `--glass-border:${hexToRgba("#ffffff", borderAlpha * 0.22)}`,
-    `--glass-shadow:0 8px 32px rgba(0,0,0,${(0.3 * strength).toFixed(3)})`,
+    `--glass-border:${hexToRgba("#ffffff", borderAlpha * 0.32)}`,
+    `--glass-highlight:${hexToRgba("#ffffff", specularAlpha)}`,
+    `--glass-sheen:${hexToRgba("#ffffff", 0.035 + strength * 0.06)}`,
+    `--glass-contrast-edge:${hexToRgba("#000000", 0.14 + strength * 0.10)}`,
+    `--glass-panel-ring:${hexToRgba("#ffffff", 0.05 + strength * 0.08)}`,
+    `--glass-shadow:0 18px 70px rgba(0,0,0,${(0.34 + strength * 0.12).toFixed(3)}), inset 0 1px 0 ${hexToRgba("#ffffff", specularAlpha)}`,
+    `--glass-specular:${specularAlpha.toFixed(3)}`,
+    `--glass-glow:${glowAlpha.toFixed(3)}`,
   ].join(";");
 }
 

@@ -120,28 +120,28 @@
   .search-toolbar { display: flex; flex-direction: column; gap: 6px; }
   .search-options { display: flex; gap: 4px; flex-wrap: wrap; }
   .search-flag {
-    padding: 2px 6px;
+    padding: 3px 7px;
     font-size: 10px;
     font-weight: 500;
     letter-spacing: 0.02em;
     color: var(--text-mute);
-    background: var(--hover);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     border-radius: 4px;
-    opacity: 0.45;
+    opacity: 0.5;
     user-select: none;
     cursor: pointer;
     font-family: inherit;
-    transition: color 0.12s, border-color 0.12s, background 0.12s, opacity 0.12s;
+    transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
   }
   .search-flag:hover {
-    opacity: 0.75;
+    opacity: 0.8;
+    background: var(--hover);
     color: var(--text-dim);
   }
   .search-flag.active {
-    color: var(--accent);
-    border-color: var(--accent-mid);
     background: var(--accent-soft);
+    color: var(--accent);
     opacity: 1;
   }
   .search-input {

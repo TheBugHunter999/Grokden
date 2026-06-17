@@ -215,7 +215,7 @@
   let saveError = $state("");
 
   let activePanel = $state<"explorer" | "search" | "scm">("explorer");
-  let userSidebarOpen = $state(true);
+  let userSidebarOpen = $state(false);
   let userSecondaryOpen = $state(initialSecondarySidebarOpen(settings));
   let userTerminalOpen = $state(settings.showTerminalOnStart);
   let sidebarCollapsed = $state(false);
@@ -255,6 +255,7 @@
   let vimSubMode = $state<"NORMAL" | "INSERT">("NORMAL");
   let formatNotice = $state("");
   let settingsNotice = $state("");
+  let contextMenu = $state({ open: false, x: 0, y: 0, canCopy: false, canSelectAll: false });
   let editorTextarea: HTMLTextAreaElement | undefined = $state();
   let editorScrollEl = $state<HTMLDivElement | undefined>();
   let workspaceBodyEl = $state<HTMLDivElement | undefined>();
@@ -471,7 +472,7 @@
   }
 
   function runLayoutReconcile() {
-    const railReserve = settings.zenMode ? 0 : settings.uiDensity === "compact" ? 42 : 40;
+    const railReserve = settings.zenMode ? 0 : settings.uiDensity === "compact" ? 276 : 298;
     const chromeReserve = settings.uiDensity === "compact" ? 84 : settings.uiDensity === "spacious" ? 108 : 92;
     const result = reconcileLayout({
       settings,
@@ -505,6 +506,16 @@
       collapsedByConstraint: { ...layoutConstraint.collapsedByConstraint, sidebar: false },
     };
     runLayoutReconcile();
+  }
+
+  function toggleExplorerPanel() {
+    view = "editor";
+    if (activePanel === "explorer" && userSidebarOpen && !settings.zenMode) {
+      setUserSidebarOpen(false);
+      return;
+    }
+    activePanel = "explorer";
+    setUserSidebarOpen(true);
   }
 
   function setUserSecondaryOpen(open: boolean) {
@@ -842,7 +853,61 @@
     return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
   }
 
+  function getSelectedText() {
+    if (typeof window === "undefined") return "";
+    return window.getSelection()?.toString() ?? "";
+  }
+
+  function allowsTextContext(target: HTMLElement | null) {
+    if (!target) return false;
+    return Boolean(target.closest("[data-terminal-root], .xterm, input, textarea, [contenteditable='true']"));
+  }
+
+  function closeContextMenu() {
+    if (!contextMenu.open) return;
+    contextMenu = { ...contextMenu, open: false };
+  }
+
+  function handleContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    const target = event.target as HTMLElement | null;
+    const canSelectAll = allowsTextContext(target);
+    const canCopy = canSelectAll && getSelectedText().trim().length > 0;
+    const menuWidth = 168;
+    const menuHeight = 86;
+    contextMenu = {
+      open: canSelectAll,
+      x: Math.min(event.clientX, Math.max(8, window.innerWidth - menuWidth - 8)),
+      y: Math.min(event.clientY, Math.max(8, window.innerHeight - menuHeight - 8)),
+      canCopy,
+      canSelectAll,
+    };
+  }
+
+  async function copyContextSelection() {
+    const text = getSelectedText();
+    if (text) {
+      await navigator.clipboard?.writeText(text).catch(() => undefined);
+    }
+    closeContextMenu();
+  }
+
+  function selectAllContextText() {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+      active.select();
+    } else {
+      document.execCommand("selectAll");
+    }
+    closeContextMenu();
+  }
+
   function handleKeydown(event: KeyboardEvent) {
+    if (contextMenu.open && event.key === "Escape") {
+      closeContextMenu();
+      event.preventDefault();
+      return;
+    }
     if (!workspaceVisible || appPhase !== "workspace") return;
     const mod = event.ctrlKey || event.metaKey;
     const target = event.target as HTMLElement | null;
@@ -1158,6 +1223,16 @@
     if (opening) selectBottomPanelTab("terminal");
   }
 
+  function openTerminalPanel() {
+    if (folderRestricted && !userTerminalOpen) {
+      restrictedFeatureNotice("Terminal");
+      return;
+    }
+    setUserTerminalOpen(true);
+    selectBottomPanelTab("terminal");
+    view = "editor";
+  }
+
   function launchGrokCli() {
     if (folderRestricted) {
       restrictedFeatureNotice("Grok CLI");
@@ -1205,7 +1280,7 @@
 
   function openAgentSwarm() {
     if (folderRestricted) {
-      restrictedFeatureNotice("Parallel Agent Swarm");
+      restrictedFeatureNotice("Parallel Agents");
       return;
     }
     agentSwarmOpen = true;
@@ -1531,7 +1606,12 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} onbeforeunload={handleBeforeUnload} />
+<svelte:window
+  onkeydown={handleKeydown}
+  onbeforeunload={handleBeforeUnload}
+  oncontextmenu={handleContextMenu}
+  onclick={closeContextMenu}
+/>
 
 {#if settings.devTools && settings.windowTransparency < 100}
   <div class="glass-debug-pill" aria-label="Glass debug" title="CSS backdrop-filter glass settings">
@@ -1539,6 +1619,20 @@
     {#if glassDebug.cssAlphas}
       · blur {glassDebug.cssAlphas.blurPx}px · editor α{glassDebug.cssAlphas.editorAlpha.toFixed(2)} · panel α{glassDebug.cssAlphas.panelAlpha.toFixed(2)}
     {/if}
+  </div>
+{/if}
+
+{#if contextMenu.open}
+  <div
+    class="context-menu"
+    role="menu"
+    tabindex="-1"
+    style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
+    onclick={(event) => event.stopPropagation()}
+    onkeydown={(event) => event.stopPropagation()}
+  >
+    <button type="button" role="menuitem" disabled={!contextMenu.canCopy} onclick={copyContextSelection}>Copy</button>
+    <button type="button" role="menuitem" disabled={!contextMenu.canSelectAll} onclick={selectAllContextText}>Select All</button>
   </div>
 {/if}
 
@@ -1611,52 +1705,89 @@
   </header>
 
   <div class="workspace{layoutClasses.workspace}">
-    <nav class="activity-rail" aria-label="Activity bar" class:zen-hidden={settings.zenMode}>
-      <button type="button" class="rail-btn" class:active={activePanel === "explorer" && !sidebarCollapsed} aria-label="Explorer" onclick={() => { if (activePanel === "explorer" && !sidebarCollapsed) { setUserSidebarOpen(false); } else { activePanel = "explorer"; setUserSidebarOpen(true); } }}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h6l1.5 1.5v7.5H2.5V2.5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M8.5 2.5V4h3" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
-        <span class="rail-hint">Explorer</span>
-      </button>
-      <button type="button" class="rail-btn" class:active={activePanel === "search" && !sidebarCollapsed} aria-label="Search" onclick={() => { activePanel = "search"; setUserSidebarOpen(true); }}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10 10l3 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
-        <span class="rail-hint">Search</span>
-      </button>
-      <button type="button" class="rail-btn" class:active={activePanel === "scm" && !sidebarCollapsed} aria-label="Source Control" disabled={!shouldShowGitPanel(settings)} onclick={() => { if (!shouldShowGitPanel(settings)) return; activePanel = "scm"; setUserSidebarOpen(true); }}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="5" cy="4" r="1.5" fill="currentColor"/><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="11" cy="7" r="1.5" fill="currentColor"/><path d="M5 5.5v5M5 7.5h4a1.5 1.5 0 0 0 0-3" fill="none" stroke="currentColor" stroke-width="1.25"/></svg>
-        {#if dirtyCount > 0}<span class="rail-badge">{dirtyCount}</span>{/if}
-        <span class="rail-hint">Source Control</span>
-      </button>
-      <span class="rail-spacer"></span>
-      <button type="button" class="rail-btn" class:active={agentSwarmOpen} aria-label="Parallel Agents" onclick={openAgentSwarm}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
-        <span class="rail-hint">Agent Swarm</span>
-      </button>
-      <button type="button" class="rail-btn" class:active={userTerminalOpen} aria-label="Terminal" onclick={toggleTerminalPanel}>
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M4.5 8l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="rail-hint">Terminal</span>
-      </button>
-      <button
-        type="button"
-        class="rail-btn"
-        class:active={secondarySidebarOpen}
-        aria-label="Agent activity"
-        onclick={() => {
-          if (secondarySidebarOpen && secondaryPanelTab === "activity") {
-            setUserSecondaryOpen(false);
-          } else {
-            setUserSecondaryOpen(true);
-            secondaryPanelTab = "activity";
-          }
-        }}
-      >
-        <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h7M3 11.5h10" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/><circle cx="12.5" cy="8" r="1.5" fill="currentColor"/></svg>
-        {#if activeAgentSession && isSessionLive(activeAgentSession)}
-          <span class="rail-live" aria-hidden="true"></span>
+    <nav class="activity-rail codex-sidebar" aria-label="Workspace navigation" class:zen-hidden={settings.zenMode}>
+      <div class="codex-primary-actions">
+        <button type="button" class="rail-btn codex-nav-item primary" class:active={userTerminalOpen && view !== "agents"} aria-label="Terminal" onclick={openTerminalPanel}>
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M5 7l2 1.5L5 10M8.5 10.5h3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="codex-nav-text">Terminal</span>
+        </button>
+        <button type="button" class="rail-btn codex-nav-item" class:active={activePanel === "search" && !sidebarCollapsed} aria-label="Search" onclick={() => { activePanel = "search"; setUserSidebarOpen(true); }}>
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M10 10l3 3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+          <span class="codex-nav-text">Search</span>
+        </button>
+        <button type="button" class="rail-btn codex-nav-item" class:active={agentSwarmOpen} aria-label="Parallel Agents" onclick={openAgentSwarm}>
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+          <span class="codex-nav-text">Parallel Agents</span>
+          {#if parallelAgents.length > 0}<span class="rail-badge inline">{parallelAgents.length}</span>{/if}
+        </button>
+      </div>
+
+      <div class="codex-section">
+        <div class="codex-section-title">Projects</div>
+        <button type="button" class="codex-project-row" class:active={activePanel === "explorer" && !sidebarCollapsed} onclick={toggleExplorerPanel}>
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h4l1.1 1.2H14v6.8H2V4.5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+          <span class="codex-project-name">{folderName || "Open a folder"}</span>
+          <span class="codex-project-meta">{activePanel === "explorer" && !sidebarCollapsed ? "Hide" : folderPath ? "Files" : "Start"}</span>
+        </button>
+        <button type="button" class="codex-list-row compact" onclick={openFolder}>
+          <span>{folderPath ? "Switch folder" : "Choose workspace"}</span>
+          <span class="codex-list-time">Ctrl+O</span>
+        </button>
+      </div>
+
+      <div class="codex-section">
+        <div class="codex-section-title">Workspace</div>
+        <button type="button" class="codex-list-row" class:active={activePanel === "explorer" && !sidebarCollapsed} onclick={toggleExplorerPanel}>
+          <span>Files</span>
+          <span class="codex-list-time">{activePanel === "explorer" && !sidebarCollapsed ? "hide" : tabs.length}</span>
+        </button>
+        <button type="button" class="codex-list-row" class:active={activePanel === "scm" && !sidebarCollapsed} disabled={!shouldShowGitPanel(settings)} onclick={() => { if (!shouldShowGitPanel(settings)) return; activePanel = "scm"; setUserSidebarOpen(true); }}>
+          <span>Source Control</span>
+          {#if dirtyCount > 0}<span class="codex-dot" aria-hidden="true"></span>{/if}
+        </button>
+        <button
+          type="button"
+          class="codex-list-row"
+          class:active={secondarySidebarOpen && secondaryPanelTab === "activity"}
+          onclick={() => {
+            if (secondarySidebarOpen && secondaryPanelTab === "activity") {
+              setUserSecondaryOpen(false);
+            } else {
+              setUserSecondaryOpen(true);
+              secondaryPanelTab = "activity";
+            }
+          }}
+        >
+          <span>Agent Activity</span>
+          {#if activeAgentSession && isSessionLive(activeAgentSession)}
+            <span class="rail-live inline" aria-hidden="true"></span>
+          {/if}
+        </button>
+      </div>
+
+      <div class="codex-section codex-session-section">
+        <div class="codex-section-title">Sessions</div>
+        {#if activeTab}
+          <button type="button" class="codex-list-row" onclick={() => { view = "editor"; activeTabPath = activeTab.path; }}>
+            <span>{activeTab.name}</span>
+            <span class="codex-list-time">now</span>
+          </button>
         {/if}
-        <span class="rail-hint">Activity</span>
-      </button>
-      <button type="button" class="rail-btn" class:active={settingsOpen} aria-label="Settings" onclick={openSettings}>
+        <button type="button" class="codex-list-row" onclick={openTerminalPanel}>
+          <span>Workspace terminal</span>
+          <span class="codex-list-time">{userTerminalOpen ? "open" : "ready"}</span>
+        </button>
+        <button type="button" class="codex-list-row" onclick={openAgentSwarm}>
+          <span>Parallel agents</span>
+          <span class="codex-list-time">{parallelAgents.length ? `${parallelAgents.length} live` : "ready"}</span>
+        </button>
+      </div>
+
+      <span class="rail-spacer"></span>
+
+      <button type="button" class="rail-btn codex-nav-item settings-item" class:active={settingsOpen} aria-label="Settings" onclick={openSettings}>
         <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 2.5v2M8 11.5v2M2.5 8h2M11.5 8h2M4.1 4.1l1.4 1.4M10.5 10.5l1.4 1.4M4.1 11.9l1.4-1.4M10.5 5.5l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
-        <span class="rail-hint">Settings</span>
+        <span class="codex-nav-text">Settings</span>
       </button>
     </nav>
 
@@ -1721,9 +1852,9 @@
       <div class="tab-bar dark-scrollbar">
         {#if agentSwarmOpen}
           <button type="button" class="tab" class:active={view === "agents"} onclick={() => (view = "agents")}>
-            <span class="tab-badge swarm-badge">SW</span>
-            <span class="tab-name">Agent Swarm</span>
-            <span class="tab-close" role="button" tabindex="0" aria-label="Close Agent Swarm" onclick={(e) => { e.stopPropagation(); closeAgentSwarm(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeAgentSwarm(); } }}></span>
+            <span class="tab-badge swarm-badge">PA</span>
+            <span class="tab-name">Parallel Agents</span>
+            <span class="tab-close" role="button" tabindex="0" aria-label="Close Parallel Agents" onclick={(e) => { e.stopPropagation(); closeAgentSwarm(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeAgentSwarm(); } }}></span>
           </button>
         {/if}
         {#if settingsOpen}
@@ -1873,9 +2004,45 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
         <div class="editor-placeholder">
-          <img class="welcome-logo" src="/favicon.png" alt="" width="40" height="40" />
-          <h1 class="welcome-title">Grokden</h1>
-          <p class="welcome-sub">A focused desktop IDE for building with AI.</p>
+          <div class="welcome-center">
+            <h1 class="welcome-title">What should we build in Grokden?</h1>
+            <div class="welcome-composer">
+              <div class="welcome-input-line">Launch a terminal, open a folder, or start agents</div>
+              <div class="welcome-composer-actions">
+                <button type="button" class="composer-icon-btn" aria-label="Open folder" title="Open folder" onclick={openFolder}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h4l1.1 1.2H14v6.3H2V5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+                </button>
+                <button type="button" class="composer-chip" onclick={openTerminalPanel}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M5 7l2 1.5L5 10M8.5 10.5h3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Terminal
+                </button>
+                <button type="button" class="composer-chip" onclick={openAgentSwarm}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+                  Parallel Agents
+                </button>
+                <button type="button" class="composer-send" aria-label="Launch Grok CLI" title="Launch Grok CLI" onclick={launchGrokCli}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9M4.5 6.5 8 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="welcome-actions">
+              <button type="button" class="welcome-card" onclick={openFolder}>
+                <span class="welcome-card-icon">01</span>
+                <span class="welcome-card-title">Open Folder</span>
+                <span class="welcome-card-sub">Browse and edit local files</span>
+              </button>
+              <button type="button" class="welcome-card" onclick={openTerminalPanel}>
+                <span class="welcome-card-icon">02</span>
+                <span class="welcome-card-title">Terminal</span>
+                <span class="welcome-card-sub">Run shell commands in the workspace</span>
+              </button>
+              <button type="button" class="welcome-card" onclick={openAgentSwarm}>
+                <span class="welcome-card-icon">03</span>
+                <span class="welcome-card-title">Parallel Agents</span>
+                <span class="welcome-card-sub">Launch multiple Grok CLI panes</span>
+              </button>
+            </div>
+          </div>
           {#if grokCliAvailable === false}
             <div class="welcome-grok-alert" role="alert">
               <p class="welcome-grok-title">Grok CLI not found on PATH</p>
@@ -1898,23 +2065,12 @@
                 disabled={grokCliChecking}
                 onclick={() => void refreshGrokCliStatus()}
               >
-                {grokCliChecking ? "Checking…" : "Check again"}
+                {grokCliChecking ? "Checking..." : "Check again"}
               </button>
             </div>
           {:else if grokCliChecking}
-            <p class="welcome-grok-checking">Checking for Grok CLI…</p>
+            <p class="welcome-grok-checking">Checking for Grok CLI...</p>
           {/if}
-          <div class="welcome-actions">
-            <button type="button" class="welcome-btn primary" onclick={openFolder}>Open Folder</button>
-            <button type="button" class="welcome-btn" onclick={openAgentSwarm}>Parallel Agents</button>
-            <button type="button" class="welcome-btn" onclick={launchGrokCli}>Launch Grok CLI</button>
-          </div>
-          <div class="welcome-hints">
-            <span><kbd>Ctrl</kbd>+<kbd>S</kbd> Save</span>
-            <span><kbd>Ctrl</kbd>+<kbd>B</kbd> Sidebar</span>
-            <span><kbd>Ctrl</kbd>+<kbd>`</kbd> Terminal</span>
-            <span><kbd>Ctrl</kbd>+<kbd>,</kbd> Settings</span>
-          </div>
         </div>
         </div>
       {/if}
@@ -2072,18 +2228,20 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   <div class="statusbar" class:zen-hidden={settings.zenMode} bind:this={statusBarEl}>
     <div class="status-left">
-      <span class="status-chip accent">{view === "agents" ? `Swarm · ${parallelAgents.length} agents` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
+      <span class="status-chip accent">{view === "agents" ? `Agents: ${parallelAgents.length}` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
       {#if folderPath}<span class="status-chip" title={folderPath}>{folderName}</span>{/if}
       {#if folderRestricted}<span class="status-chip warn" title="Trust the folder to enable terminals and agents">Restricted</span>{/if}
       {#if dirtyCount > 0}<span class="status-chip warn">{dirtyCount} unsaved</span>{/if}
-      {#each scopedStatusChips as chip (chip.label)}
-        <span
-          class="status-chip"
-          class:accent={chip.tone === "accent"}
-          class:warn={chip.tone === "warn"}
-          class:muted={chip.tone === "muted"}
-        >{chip.label}</span>
-      {/each}
+      {#if view === "editor" && activeTab}
+        {#each scopedStatusChips as chip (chip.label)}
+          <span
+            class="status-chip"
+            class:accent={chip.tone === "accent"}
+            class:warn={chip.tone === "warn"}
+            class:muted={chip.tone === "muted"}
+          >{chip.label}</span>
+        {/each}
+      {/if}
     </div>
     <div class="status-right">
       {#if settings.experimentalFeatures}
@@ -2257,6 +2415,32 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
   }
 
+  :global(html),
+  :global(body),
+  :global(#svelte),
+  :global(#svelte *) {
+    cursor: default !important;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  :global(#svelte input),
+  :global(#svelte textarea),
+  :global(#svelte [contenteditable="true"]),
+  :global(#svelte .xterm),
+  :global(#svelte .xterm *),
+  :global(#svelte [data-terminal-root]),
+  :global(#svelte [data-terminal-root] *) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  :global(#svelte input),
+  :global(#svelte textarea),
+  :global(#svelte [contenteditable="true"]) {
+    cursor: text !important;
+  }
+
   .ide {
     position: fixed;
     inset: 0;
@@ -2274,39 +2458,88 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .ide.glass-window {
     background: transparent;
+    isolation: isolate;
+  }
+
+  .ide.glass-window::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, var(--glass-sheen, rgba(255, 255, 255, 0.06)) 0%, transparent 36%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, transparent 22%, rgba(0, 0, 0, 0.14) 100%);
+    opacity: calc(0.42 + var(--glass-strength, 0.5) * 0.32);
+    mix-blend-mode: screen;
+  }
+
+  .ide.glass-window > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .ide.glass-window,
+  .ide:not(.glass-window) {
+    transition: background-color 360ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ide.glass-window .topbar,
   .ide.glass-window .statusbar,
   .ide.glass-window .tab-bar,
   .ide.glass-window :global(.window-chrome) {
-    background: var(--glass-chrome-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 65%),
+      var(--glass-chrome-bg);
+    backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(1.38) contrast(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(1.38) contrast(1.04);
     border-color: var(--glass-border);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--glass-strength, 0) * 0.1));
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      inset 0 -1px 0 var(--glass-contrast-edge),
+      0 1px 0 rgba(255, 255, 255, 0.02);
+    transition:
+      backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ide.glass-window .activity-rail {
-    background: var(--glass-rail-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 58%),
+      var(--glass-rail-bg);
+    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.32) contrast(1.03);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.32) contrast(1.03);
     border-color: var(--glass-border);
+    box-shadow:
+      inset 1px 0 0 var(--glass-highlight),
+      inset -1px 0 0 var(--glass-contrast-edge),
+      12px 0 44px rgba(0, 0, 0, calc(0.12 + var(--glass-strength, 0.5) * 0.12));
+    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ide.glass-window .sidebar,
   .ide.glass-window .secondary-sidebar {
-    background: var(--glass-panel-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 62%),
+      var(--glass-panel-bg);
+    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
     border-color: var(--glass-border);
-    box-shadow: var(--glass-shadow, none);
+    box-shadow:
+      var(--glass-shadow, none),
+      inset 0 1px 0 var(--glass-highlight),
+      inset 0 0 0 1px var(--glass-panel-ring, transparent);
+    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ide.glass-window .editor-area {
-    background: var(--glass-editor-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 38%),
+      var(--glass-editor-bg);
+    backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+    -webkit-backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .ide.glass-window .workspace-body,
@@ -2328,16 +2561,51 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide.glass-window .terminal-header {
-    background: var(--glass-panel-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 64%),
+      var(--glass-panel-bg);
+    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
     border-color: var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
 
   .ide.glass-window .terminal-body {
-    background: var(--glass-editor-bg);
-    backdrop-filter: blur(var(--glass-blur, 20px));
-    -webkit-backdrop-filter: blur(var(--glass-blur, 20px));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 40%),
+      var(--glass-editor-bg);
+    backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+    -webkit-backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+  }
+
+  .ide.glass-window .command-hint,
+  .ide.glass-window .welcome-composer,
+  .ide.glass-window .welcome-card,
+  .ide.glass-window .welcome-grok-alert {
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 64%),
+      var(--glass-panel-bg);
+    border-color: var(--glass-border);
+    box-shadow:
+      0 18px 50px rgba(0, 0, 0, calc(0.10 + var(--glass-strength, 0.5) * 0.16)),
+      inset 0 1px 0 var(--glass-highlight),
+      inset 0 0 0 1px var(--glass-panel-ring, transparent);
+    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.3) contrast(1.03);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.3) contrast(1.03);
+  }
+
+  .ide.glass-window .composer-chip,
+  .ide.glass-window .composer-icon-btn,
+  .ide.glass-window .composer-send,
+  .ide.glass-window .codex-list-row.active,
+  .ide.glass-window .codex-project-row.active {
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 70%),
+      color-mix(in srgb, var(--active) 78%, transparent);
+    border-color: var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 0 rgba(255, 255, 255, 0.02);
   }
 
   .topbar {
@@ -2369,14 +2637,14 @@ This is a very long debug log line that demonstrates whether the debug console w
     opacity: 0.95;
   }
 
-  .app-name { font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: var(--text); }
+  .app-name { font-size: 12px; font-weight: 500; letter-spacing: 0.02em; color: var(--text); }
 
   .version-pill {
     font-size: 10px;
     font-weight: 400;
     color: var(--text-mute);
     padding: 1px 6px;
-    border-radius: 4px;
+    border-radius: 6px;
     background: var(--chip-bg);
     border: 1px solid var(--border);
   }
@@ -2401,6 +2669,48 @@ This is a very long debug log line that demonstrates whether the debug console w
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 30000;
+    min-width: 168px;
+    padding: 5px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border, var(--border));
+    background:
+      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 62%),
+      var(--glass-panel-bg, color-mix(in srgb, var(--surface-overlay) 92%, transparent));
+    box-shadow:
+      0 18px 54px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 var(--glass-highlight, rgba(255, 255, 255, 0.08));
+    backdrop-filter: blur(var(--glass-blur-panel, 28px)) saturate(1.35) contrast(1.04);
+    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 28px)) saturate(1.35) contrast(1.04);
+  }
+
+  .context-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 30px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+  }
+
+  .context-menu button:hover:not(:disabled) {
+    background: var(--hover-strong);
+    color: var(--text);
+  }
+
+  .context-menu button:disabled {
+    color: var(--text-disabled);
+    opacity: 0.55;
   }
 
   .command-hint {
@@ -2440,21 +2750,21 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   .save-btn,
   .launch-btn {
-    padding: 4px 10px;
+    padding: 6px 12px;
     font-size: 12px;
-    font-weight: 400;
+    font-weight: 500;
     font-family: inherit;
     color: var(--text-dim);
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s, opacity 0.12s;
+    transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
   .save-btn:hover:not(:disabled),
-  .launch-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+  .launch-btn:hover:not(:disabled) { background: var(--hover-strong); color: var(--text); }
   .save-btn:disabled,
   .launch-btn:disabled { opacity: 0.35; cursor: default; }
   .launch-btn { color: var(--text-dim); }
@@ -2466,13 +2776,12 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .rail-live {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--text-dim);
+    background: var(--success);
+    box-shadow: 0 0 0 3px var(--success-soft);
+    flex-shrink: 0;
   }
 
   .workspace {
@@ -2545,91 +2854,162 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .activity-rail {
-    width: var(--rail-width, 40px);
+    width: var(--rail-width, 298px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 1px;
-    padding: 6px 0;
-    background: var(--panel-solid);
+    align-items: stretch;
+    gap: 14px;
+    padding: 12px 7px 10px;
+    background: var(--panel);
     border-right: 1px solid var(--border);
     z-index: 2;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .codex-primary-actions,
+  .codex-section {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .codex-section {
+    padding-top: 2px;
+  }
+
+  .codex-section-title {
+    padding: 0 8px 4px;
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+
+  .codex-session-section {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .rail-btn,
+  .codex-list-row,
+  .codex-project-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    font-family: inherit;
+    text-align: left;
+    box-sizing: border-box;
+    transition: color 0.12s ease, background 0.12s ease;
   }
 
   .rail-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    color: var(--text-mute);
-    background: none;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    position: relative;
-    transition: color 0.12s;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 32px;
+    padding: 7px 9px;
+    border-radius: 7px;
+    font-size: 14px;
   }
   .rail-svg {
     width: 16px;
     height: 16px;
     display: block;
+    flex-shrink: 0;
     opacity: 0.65;
     transition: opacity 0.12s;
   }
   .rail-btn:hover .rail-svg,
-  .rail-btn.active .rail-svg { opacity: 1; }
-  .rail-btn:hover { color: var(--text-dim); }
-  .rail-btn.active { color: var(--text); }
-  .rail-btn.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 9px;
-    bottom: 9px;
-    width: 2px;
-    border-radius: 0 1px 1px 0;
-    background: var(--accent);
-    opacity: 0.75;
+  .rail-btn.active .rail-svg,
+  .codex-project-row.active .rail-svg { opacity: 1; }
+  .rail-btn:hover,
+  .codex-list-row:hover:not(:disabled),
+  .codex-project-row:hover { color: var(--text); background: var(--hover); }
+  .rail-btn.active,
+  .codex-list-row.active,
+  .codex-project-row.active { color: var(--text); background: var(--active); }
+
+  .codex-nav-item.primary {
+    color: var(--text);
   }
-  .rail-hint {
-    position: absolute;
-    left: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--text-dim);
-    background: var(--panel-solid);
-    border: 1px solid var(--border);
-    border-radius: 4px;
+
+  .codex-nav-text,
+  .codex-list-row span:first-child,
+  .codex-project-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s;
-    z-index: 20;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   }
-  .rail-btn:hover .rail-hint,
-  .rail-btn:focus-visible .rail-hint { opacity: 1; }
+
+  .codex-list-row {
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 30px;
+    padding: 6px 9px;
+    border-radius: 7px;
+    font-size: 14px;
+  }
+
+  .codex-list-row.compact {
+    min-height: 26px;
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+
+  .codex-list-row:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .codex-list-time {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+
+  .codex-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .codex-project-row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 8px;
+    min-height: 34px;
+    padding: 7px 9px;
+    border-radius: 7px;
+  }
+
+  .codex-project-meta {
+    font-size: 12px;
+    color: var(--text-mute);
+  }
+
   .rail-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    min-width: 11px;
-    height: 11px;
-    padding: 0 2px;
-    border-radius: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: 999px;
     background: var(--accent);
     color: var(--on-accent);
-    font-size: 7px;
+    font-size: 10px;
     font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
+    margin-left: auto;
   }
   .rail-spacer { flex: 1; }
 
@@ -2823,22 +3203,17 @@ This is a very long debug log line that demonstrates whether the debug console w
     flex-shrink: 0;
     height: 100%;
     position: relative;
-    transition: color 0.15s, background 0.15s;
+    transition: color 0.12s ease, background 0.12s ease;
   }
-  .tab:hover { background: var(--hover); color: var(--text-dim); }
+  .tab:hover {
+    color: var(--text-dim);
+    background: var(--hover);
+  }
   .tab.active {
-    background: var(--editor-bg);
     color: var(--text);
+    background: var(--hover-strong);
+    border-bottom: 2px solid var(--accent);
     font-weight: 400;
-  }
-  .tab.active::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    height: 1px;
-    background: var(--accent);
   }
   .tab.muted { color: var(--text-mute); cursor: default; }
   .tab-badge { font-size: 9px; font-weight: 500; letter-spacing: -0.3px; flex-shrink: 0; }
@@ -2978,37 +3353,181 @@ This is a very long debug log line that demonstrates whether the debug console w
     height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 4px;
-    padding: 28px 32px;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 36px 32px;
     overflow: auto;
     background: var(--editor-bg);
     color: var(--text-mute);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
-  .welcome-logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+
+  .welcome-center {
+    width: min(728px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
   }
+
   .welcome-title {
-    margin: 8px 0 0;
-    font-size: 18px;
+    margin: 0;
+    max-width: 620px;
+    font-size: 28px;
+    line-height: 1.18;
     font-weight: 500;
-    letter-spacing: 0.01em;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .welcome-composer {
+    width: min(728px, 100%);
+    min-height: 116px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px;
+    border-radius: 8px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+    box-sizing: border-box;
+  }
+
+  .welcome-input-line {
+    min-height: 24px;
+    font-size: 14px;
+    color: var(--text-mute);
+  }
+
+  .welcome-composer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .composer-icon-btn,
+  .composer-chip,
+  .composer-send {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .composer-icon-btn,
+  .composer-send {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 50%;
+    color: var(--text-mute);
+    background: transparent;
+  }
+
+  .composer-icon-btn:hover,
+  .composer-send:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .composer-chip {
+    gap: 6px;
+    min-width: 0;
+    max-width: 190px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: var(--text-dim);
+    background: transparent;
+    white-space: nowrap;
+  }
+
+  .composer-chip:hover {
+    color: var(--text);
+    background: var(--hover);
+  }
+
+  .composer-send {
+    margin-left: auto;
+    color: var(--panel-solid);
+    background: var(--text-dim);
+  }
+
+  .composer-send:hover {
+    color: var(--panel-solid);
+    background: var(--text);
+  }
+
+  .composer-icon-btn svg,
+  .composer-chip svg,
+  .composer-send svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .welcome-actions {
+    width: min(664px, 100%);
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .welcome-card {
+    min-width: 0;
+    min-height: 114px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 15px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  }
+
+  .welcome-card:hover {
+    color: var(--text);
+    background: var(--hover);
+    border-color: var(--border-strong);
+  }
+
+  .welcome-card-icon {
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .welcome-card-title {
+    font-size: 13px;
     color: var(--text);
   }
-  .welcome-sub { margin: 0 0 10px; font-size: 12px; color: var(--text-mute); }
+
+  .welcome-card-sub {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-mute);
+  }
+
   .welcome-grok-checking {
-    margin: 0 0 14px;
+    margin: 0;
     font-size: 12px;
     color: var(--text-mute);
   }
   .welcome-grok-alert {
     width: min(520px, 92vw);
-    margin: 0 0 16px;
+    margin: 0;
     padding: 14px 16px;
     text-align: left;
     border: 1px solid var(--warn);
@@ -3082,31 +3601,23 @@ This is a very long debug log line that demonstrates whether the debug console w
     opacity: 0.6;
     cursor: default;
   }
-  .welcome-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .welcome-btn {
-    padding: 5px 12px;
-    font-size: 11px;
-    font-weight: 400;
-    font-family: inherit;
-    color: var(--text-mute);
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    cursor: pointer;
-    transition: color 0.12s, border-color 0.12s, background 0.12s;
-  }
-  .welcome-btn:hover { color: var(--text); border-color: var(--text-mute); background: var(--hover); }
-  .welcome-btn.primary { color: var(--accent); border-color: var(--accent-mid); }
-  .welcome-btn.primary:hover { color: var(--text); background: var(--accent-soft); }
-  .welcome-hints { display: flex; gap: 12px; font-size: 10px; color: var(--text-mute); flex-wrap: wrap; }
-  .welcome-hints kbd {
-    font-family: inherit;
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: var(--hover);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
+
+  @media (max-width: 840px) {
+    .welcome-title {
+      font-size: 24px;
+    }
+    .welcome-actions {
+      grid-template-columns: 1fr;
+    }
+    .welcome-card {
+      min-height: 84px;
+    }
+    .welcome-composer-actions {
+      flex-wrap: wrap;
+    }
+    .composer-send {
+      margin-left: 0;
+    }
   }
 
   .line-numbers {
@@ -3568,7 +4079,10 @@ This is a very long debug log line that demonstrates whether the debug console w
   .ide.density-compact .topbar { height: 32px; }
   .ide.density-compact .tab-bar { height: 32px; }
   .ide.density-compact .statusbar { height: 20px; }
-  .ide.density-compact .activity-rail { width: 42px; }
+  .ide.density-compact .activity-rail {
+    width: var(--rail-width, 276px);
+    padding-inline: 6px;
+  }
   .ide.density-spacious .topbar { height: 48px; }
   .ide.density-spacious .tab-bar { height: 42px; }
   .ide.density-spacious .statusbar { height: 28px; font-size: 12px; }
@@ -3804,7 +4318,7 @@ This is a very long debug log line that demonstrates whether the debug console w
   .editor.smooth-scroll .editor-scroll { scroll-behavior: smooth; }
 
   :global(.dark-scrollbar) {
-    scrollbar-color: rgba(121, 121, 121, 0.45) transparent;
+    scrollbar-color: var(--scrollbar) transparent;
     scrollbar-width: thin;
   }
   :global(.dark-scrollbar::-webkit-scrollbar) {
@@ -3815,17 +4329,30 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: transparent;
   }
   :global(.dark-scrollbar::-webkit-scrollbar-thumb) {
-    background: rgba(121, 121, 121, 0.45);
+    background: var(--scrollbar);
     border: 2px solid transparent;
     border-radius: 5px;
     background-clip: padding-box;
   }
   :global(.dark-scrollbar::-webkit-scrollbar-thumb:hover) {
-    background: rgba(121, 121, 121, 0.65);
+    background: var(--scrollbar-hover);
     background-clip: padding-box;
   }
   :global(.dark-scrollbar::-webkit-scrollbar-corner) {
     background: transparent;
+  }
+
+  :global(*:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  :global(button:focus-visible),
+  :global(input:focus-visible),
+  :global(select:focus-visible),
+  :global(textarea:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 1px;
   }
 
   .editor.cursor-block .code-textarea { caret-shape: block; }

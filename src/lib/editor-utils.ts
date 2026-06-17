@@ -182,88 +182,148 @@ export const LANGUAGE_NAMES: Record<string, string> = {
 };
 
 export type ThemePalette = {
+  // Base surfaces
   bg: string;
   panel: string;
   panelSolid: string;
   editorBg: string;
+  // Additional surfaces
+  surfaceRaised: string;
+  surfaceOverlay: string;
+  surfaceInset: string;
+  // Borders & dividers
   border: string;
+  borderStrong: string;
+  borderMuted: string;
+  // Text hierarchy
   text: string;
   textDim: string;
   textMute: string;
+  textDisabled: string;
+  // Interactive
   hover: string;
+  hoverStrong: string;
+  active: string;
+  // Semantic status
   danger: string;
   warn: string;
   success: string;
+  info: string;
+  // Utility
   onAccent: string;
   chipBg: string;
+  scrollbar: string;
+  scrollbarHover: string;
+  selection: string;
+  // Flags
   isLight?: boolean;
 };
 
 export const THEMES: Record<string, ThemePalette> = {
-  "grokden-dark": {
-    bg: "#09090d", panel: "#111116", panelSolid: "#13131a", editorBg: "#0c0c11",
-    border: "rgba(255,255,255,0.08)", text: "#e4e4ec", textDim: "#b4b4c4", textMute: "#7a7a8c",
-    hover: "rgba(255,255,255,0.05)", danger: "#e06c75", warn: "#e5c07b", success: "#98c379",
+  codex: {
+    bg: "#2d2d2b", panel: "#211b26", panelSolid: "#202024", editorBg: "#2b2b29",
+    surfaceRaised: "#3a3a37", surfaceOverlay: "rgba(32,32,36,0.94)", surfaceInset: "#262624",
+    border: "rgba(255,255,255,0.075)", borderStrong: "rgba(255,255,255,0.14)", borderMuted: "rgba(255,255,255,0.045)",
+    text: "#f4f4f2", textDim: "#cececa", textMute: "#8f8b91", textDisabled: "rgba(244,244,242,0.35)",
+    hover: "rgba(255,255,255,0.055)", hoverStrong: "rgba(255,255,255,0.10)", active: "rgba(255,255,255,0.13)",
+    danger: "#f87171", warn: "#d8a657", success: "#0eae59", info: "#7aa2f7",
+    onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.065)",
+    scrollbar: "rgba(255,255,255,0.24)", scrollbarHover: "rgba(255,255,255,0.38)",
+    selection: "rgba(204,125,94,0.24)",
+  },
+  obsidian: {
+    bg: "#0a0a0f", panel: "#101015", panelSolid: "#14141b", editorBg: "#0c0c11",
+    surfaceRaised: "#1a1a22", surfaceOverlay: "rgba(10,10,15,0.92)", surfaceInset: "#08080c",
+    border: "rgba(255,255,255,0.08)", borderStrong: "rgba(255,255,255,0.14)", borderMuted: "rgba(255,255,255,0.04)",
+    text: "#e8e8f0", textDim: "#b0b0c0", textMute: "#6a6a7e", textDisabled: "rgba(232,232,240,0.35)",
+    hover: "rgba(255,255,255,0.05)", hoverStrong: "rgba(255,255,255,0.09)", active: "rgba(255,255,255,0.12)",
+    danger: "#ef4444", warn: "#f59e0b", success: "#10b981", info: "#3b82f6",
     onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.06)",
+    scrollbar: "rgba(255,255,255,0.22)", scrollbarHover: "rgba(255,255,255,0.38)",
+    selection: "rgba(91,141,239,0.25)",
   },
-  charcoal: {
-    bg: "#121214", panel: "#1a1a1e", panelSolid: "#1e1e22", editorBg: "#141416",
-    border: "rgba(255,255,255,0.07)", text: "#e8e8ec", textDim: "#b8b8c0", textMute: "#78788a",
-    hover: "rgba(255,255,255,0.04)", danger: "#e06c75", warn: "#d4a857", success: "#8fbd7a",
-    onAccent: "#ffffff", chipBg: "rgba(255,255,255,0.05)",
+  aurora: {
+    bg: "#11131a", panel: "#181b24", panelSolid: "#1d2029", editorBg: "#0f1118",
+    surfaceRaised: "#232730", surfaceOverlay: "rgba(17,19,26,0.92)", surfaceInset: "#0c0e14",
+    border: "rgba(148,163,224,0.10)", borderStrong: "rgba(148,163,224,0.18)", borderMuted: "rgba(148,163,224,0.05)",
+    text: "#dce4f5", textDim: "#a8b4d0", textMute: "#5e6a85", textDisabled: "rgba(220,228,245,0.35)",
+    hover: "rgba(148,163,224,0.06)", hoverStrong: "rgba(148,163,224,0.11)", active: "rgba(148,163,224,0.15)",
+    danger: "#f87171", warn: "#fbbf24", success: "#34d399", info: "#60a5fa",
+    onAccent: "#0f1118", chipBg: "rgba(148,163,224,0.07)",
+    scrollbar: "rgba(148,163,224,0.22)", scrollbarHover: "rgba(148,163,224,0.38)",
+    selection: "rgba(139,124,248,0.25)",
   },
-  "tokyo-night": {
-    bg: "#1a1b26", panel: "#1f2335", panelSolid: "#24283b", editorBg: "#16161e",
-    border: "rgba(122,162,247,0.1)", text: "#c0caf5", textDim: "#a9b1d6", textMute: "#565f89",
-    hover: "rgba(122,162,247,0.06)", danger: "#f7768e", warn: "#e0af68", success: "#9ece6a",
-    onAccent: "#1a1b26", chipBg: "rgba(122,162,247,0.07)",
+  frost: {
+    bg: "#f5f7fb", panel: "#ffffff", panelSolid: "#ffffff", editorBg: "#fafbfe",
+    surfaceRaised: "#ffffff", surfaceOverlay: "rgba(255,255,255,0.95)", surfaceInset: "#eef1f7",
+    border: "rgba(15,23,42,0.09)", borderStrong: "rgba(15,23,42,0.16)", borderMuted: "rgba(15,23,42,0.05)",
+    text: "#0f172a", textDim: "#334155", textMute: "#64748b", textDisabled: "rgba(15,23,42,0.35)",
+    hover: "rgba(15,23,42,0.04)", hoverStrong: "rgba(15,23,42,0.07)", active: "rgba(15,23,42,0.10)",
+    danger: "#dc2626", warn: "#d97706", success: "#059669", info: "#2563eb",
+    onAccent: "#ffffff", chipBg: "rgba(15,23,42,0.05)",
+    scrollbar: "rgba(15,23,42,0.18)", scrollbarHover: "rgba(15,23,42,0.32)",
+    selection: "rgba(37,99,235,0.18)",
+    isLight: true,
   },
-  mocha: {
-    bg: "#1e1e2e", panel: "#252536", panelSolid: "#2a2a3c", editorBg: "#181825",
-    border: "rgba(205,214,244,0.08)", text: "#cdd6f4", textDim: "#bac2de", textMute: "#6c7086",
-    hover: "rgba(205,214,244,0.05)", danger: "#f38ba8", warn: "#f9e2af", success: "#a6e3a1",
-    onAccent: "#1e1e2e", chipBg: "rgba(205,214,244,0.06)",
-  },
-  "warm-dark": {
-    bg: "#1d2021", panel: "#252829", panelSolid: "#282b2c", editorBg: "#1a1c1d",
-    border: "rgba(235,219,178,0.1)", text: "#ebdbb2", textDim: "#d5c4a1", textMute: "#928374",
-    hover: "rgba(235,219,178,0.06)", danger: "#fb4934", warn: "#fabd2f", success: "#b8bb26",
-    onAccent: "#1d2021", chipBg: "rgba(235,219,178,0.07)",
-  },
-  light: {
-    bg: "#eceef2", panel: "#f6f7fa", panelSolid: "#ffffff", editorBg: "#fafbfc",
-    border: "rgba(30,35,50,0.12)", text: "#1a1f2e", textDim: "#3d4455", textMute: "#6b7280",
-    hover: "rgba(30,35,50,0.05)", danger: "#c62828", warn: "#b8860b", success: "#2e7d32",
-    onAccent: "#ffffff", chipBg: "rgba(30,35,50,0.06)", isLight: true,
+  midnight: {
+    bg: "#000000", panel: "#0a0a0a", panelSolid: "#0f0f0f", editorBg: "#050505",
+    surfaceRaised: "#161616", surfaceOverlay: "rgba(0,0,0,0.95)", surfaceInset: "#000000",
+    border: "rgba(255,255,255,0.10)", borderStrong: "rgba(255,255,255,0.18)", borderMuted: "rgba(255,255,255,0.05)",
+    text: "#f0f0f0", textDim: "#a3a3a3", textMute: "#666666", textDisabled: "rgba(240,240,240,0.30)",
+    hover: "rgba(255,255,255,0.06)", hoverStrong: "rgba(255,255,255,0.10)", active: "rgba(255,255,255,0.14)",
+    danger: "#f87171", warn: "#fbbf24", success: "#34d399", info: "#60a5fa",
+    onAccent: "#000000", chipBg: "rgba(255,255,255,0.06)",
+    scrollbar: "rgba(255,255,255,0.20)", scrollbarHover: "rgba(255,255,255,0.36)",
+    selection: "rgba(139,124,248,0.30)",
   },
 };
 
 const LEGACY_THEME_IDS = new Set([
   "midnight", "nebula", "dracula", "nord", "one-dark", "gruvbox-dark",
+  "grokden-dark", "charcoal", "tokyo-night", "mocha", "warm-dark", "light",
 ]);
 
 const THEME_MIGRATION: Record<string, string> = {
-  midnight: "charcoal",
-  nebula: "grokden-dark",
-  dracula: "mocha",
-  nord: "tokyo-night",
-  "one-dark": "charcoal",
-  "gruvbox-dark": "warm-dark",
+  midnight: "midnight",
+  nebula: "codex",
+  dracula: "aurora",
+  nord: "aurora",
+  "one-dark": "obsidian",
+  "gruvbox-dark": "aurora",
+  "grokden-dark": "codex",
+  charcoal: "codex",
+  "tokyo-night": "aurora",
+  mocha: "aurora",
+  "warm-dark": "aurora",
+  light: "frost",
 };
 
-export const ACCENTS: Record<string, [string, string]> = {
-  slate: ["#5b8def", "#4a7fd4"],
-  violet: ["#8b7cf8", "#9b8cf0"],
-  teal: ["#2dd4bf", "#14b8a6"],
+export type AccentPalette = {
+  default: string;
+  strong: string;
+  muted: string;
+  subtle: string;
+  onAccent: string;
 };
 
-const LEGACY_ACCENT_IDS = new Set(["azure", "emerald", "amber", "rose"]);
+export const ACCENTS: Record<string, AccentPalette> = {
+  coral: { default: "#cc7d5e", strong: "#e18b68", muted: "#f0a88a", subtle: "#fbe3d8", onAccent: "#ffffff" },
+  blue: { default: "#3b82f6", strong: "#2563eb", muted: "#60a5fa", subtle: "#dbeafe", onAccent: "#ffffff" },
+  violet: { default: "#8b5cf6", strong: "#7c3aed", muted: "#a78bfa", subtle: "#ede9fe", onAccent: "#ffffff" },
+  teal: { default: "#14b8a6", strong: "#0d9488", muted: "#2dd4bf", subtle: "#ccfbf1", onAccent: "#ffffff" },
+  rose: { default: "#f43f5e", strong: "#e11d48", muted: "#fb7185", subtle: "#ffe4e6", onAccent: "#ffffff" },
+  amber: { default: "#f59e0b", strong: "#d97706", muted: "#fbbf24", subtle: "#fef3c7", onAccent: "#1a1a1a" },
+  emerald: { default: "#10b981", strong: "#059669", muted: "#34d399", subtle: "#d1fae5", onAccent: "#ffffff" },
+};
+
+const LEGACY_ACCENT_IDS = new Set(["azure", "slate", "teal"]);
 
 const ACCENT_MIGRATION: Record<string, string> = {
-  azure: "slate",
-  emerald: "teal",
-  amber: "slate",
-  rose: "violet",
+  azure: "blue",
+  slate: "blue",
+  emerald: "emerald",
+  amber: "amber",
+  rose: "rose",
 };
 
 export const FONT_STACKS: Record<string, string> = {
@@ -274,18 +334,21 @@ export const FONT_STACKS: Record<string, string> = {
 };
 
 export const themeList = [
-  { id: "grokden-dark", label: "Grokden Dark", bg: "#13131a", text: "#b4b4c4", panel: "#111116" },
-  { id: "charcoal", label: "Charcoal", bg: "#1e1e22", text: "#b8b8c0", panel: "#1a1a1e" },
-  { id: "tokyo-night", label: "Tokyo Night", bg: "#24283b", text: "#a9b1d6", panel: "#1f2335" },
-  { id: "mocha", label: "Mocha", bg: "#2a2a3c", text: "#bac2de", panel: "#252536" },
-  { id: "warm-dark", label: "Warm Dark", bg: "#282b2c", text: "#d5c4a1", panel: "#252829" },
-  { id: "light", label: "Grokden Light", bg: "#ffffff", text: "#3d4455", panel: "#f6f7fa" },
+  { id: "codex", label: "Codex", bg: "#2d2d2b", text: "#cececa", panel: "#211b26" },
+  { id: "obsidian", label: "Obsidian", bg: "#14141b", text: "#b0b0c0", panel: "#101015" },
+  { id: "aurora", label: "Aurora", bg: "#1d2029", text: "#a8b4d0", panel: "#181b24" },
+  { id: "frost", label: "Frost", bg: "#ffffff", text: "#334155", panel: "#ffffff" },
+  { id: "midnight", label: "Midnight", bg: "#0f0f0f", text: "#a3a3a3", panel: "#0a0a0a" },
 ];
 
 export const accentList = [
-  { id: "slate", label: "Slate Blue", a: "#5b8def", b: "#4a7fd4" },
-  { id: "violet", label: "Violet", a: "#8b7cf8", b: "#9b8cf0" },
-  { id: "teal", label: "Teal", a: "#2dd4bf", b: "#14b8a6" },
+  { id: "coral", label: "Coral" },
+  { id: "blue", label: "Blue" },
+  { id: "violet", label: "Violet" },
+  { id: "teal", label: "Teal" },
+  { id: "rose", label: "Rose" },
+  { id: "amber", label: "Amber" },
+  { id: "emerald", label: "Emerald" },
 ];
 
 export const settingsNav = [
@@ -384,8 +447,8 @@ export function getTerminalCursorStyle(style: TerminalCursorStyle): XtermCursorS
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: "grokden-dark",
-  accent: "violet",
+  theme: "codex",
+  accent: "coral",
   fontSize: 13,
   lineHeight: 20,
   fontFamily: "cascadia",
@@ -405,7 +468,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeQuit: true,
   uiDensity: "comfortable",
   enableAnimations: true,
-  windowTransparency: 100,
+  windowTransparency: 72,
   sidebarPosition: "left",
   iconTheme: "default",
   showBreadcrumbs: true,
@@ -536,31 +599,58 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 export function buildThemeStyle(settings: AppSettings): string {
-  const t = THEMES[settings.theme] ?? THEMES["grokden-dark"];
-  const [accent, accent2] = ACCENTS[settings.accent] ?? ACCENTS.violet;
+  const t = THEMES[settings.theme] ?? THEMES["codex"];
+  const accent = ACCENTS[settings.accent] ?? ACCENTS.violet;
+  const isLight = t.isLight ?? false;
   return [
+    // Base surfaces
     `--bg:${t.bg}`,
     `--panel:${t.panel}`,
     `--panel-solid:${t.panelSolid}`,
     `--editor-bg:${t.editorBg}`,
+    `--surface-raised:${t.surfaceRaised}`,
+    `--surface-overlay:${t.surfaceOverlay}`,
+    `--surface-inset:${t.surfaceInset}`,
+    // Borders
     `--border:${t.border}`,
+    `--border-strong:${t.borderStrong}`,
+    `--border-muted:${t.borderMuted}`,
+    // Text
     `--text:${t.text}`,
     `--text-dim:${t.textDim}`,
     `--text-mute:${t.textMute}`,
+    `--text-disabled:${t.textDisabled}`,
+    // Interactive
     `--hover:${t.hover}`,
+    `--hover-strong:${t.hoverStrong}`,
+    `--active:${t.active}`,
+    // Status
     `--danger:${t.danger}`,
-    `--danger-soft:${hexToRgba(t.danger, t.isLight ? 0.1 : 0.14)}`,
+    `--danger-soft:${hexToRgba(t.danger, isLight ? 0.10 : 0.14)}`,
     `--warn:${t.warn}`,
-    `--warn-soft:${hexToRgba(t.warn, t.isLight ? 0.12 : 0.14)}`,
+    `--warn-soft:${hexToRgba(t.warn, isLight ? 0.10 : 0.14)}`,
     `--success:${t.success}`,
-    `--on-accent:${t.panelSolid}`,
+    `--success-soft:${hexToRgba(t.success, isLight ? 0.10 : 0.14)}`,
+    `--info:${t.info}`,
+    `--info-soft:${hexToRgba(t.info, isLight ? 0.10 : 0.14)}`,
+    // Utility
+    `--on-accent:${accent.onAccent}`,
     `--chip-bg:${t.chipBg}`,
-    `--accent:${accent}`,
-    `--accent2:${accent2}`,
-    `--accent-soft:${hexToRgba(accent, t.isLight ? 0.12 : 0.18)}`,
-    `--accent-mid:${hexToRgba(accent, t.isLight ? 0.35 : 0.45)}`,
-    `--accent-strong:${t.border}`,
-    `--accent-grad:none`,
+    `--scrollbar:${t.scrollbar}`,
+    `--scrollbar-hover:${t.scrollbarHover}`,
+    `--selection:${t.selection}`,
+    // Accent system
+    `--accent:${accent.default}`,
+    `--accent2:${accent.strong}`,
+    `--accent-muted:${accent.muted}`,
+    `--accent-subtle:${accent.subtle}`,
+    `--accent-soft:${hexToRgba(accent.default, isLight ? 0.12 : 0.18)}`,
+    `--accent-mid:${hexToRgba(accent.default, isLight ? 0.25 : 0.35)}`,
+    `--accent-strong:${t.borderStrong}`,
+    `--accent-grad:linear-gradient(135deg, ${accent.default}, ${accent.strong})`,
+    // Focus
+    `--focus-ring:${accent.default}`,
+    // Typography & editor
     `--efs:${settings.fontSize}px`,
     `--elh:${settings.lineHeight}px`,
     `--etab:${settings.tabSize}`,
@@ -574,16 +664,26 @@ export function loadSettings(): AppSettings {
       const raw = localStorage.getItem("Grokden.settings");
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;
-        if (parsed.theme === "aether-dark") parsed.theme = "grokden-dark";
+        if (parsed.theme === "aether-dark") parsed.theme = "codex";
         if (parsed.theme && LEGACY_THEME_IDS.has(parsed.theme)) {
-          parsed.theme = THEME_MIGRATION[parsed.theme] ?? "grokden-dark";
+          parsed.theme = THEME_MIGRATION[parsed.theme] ?? "codex";
         }
-        if (parsed.theme && !THEMES[parsed.theme]) parsed.theme = "grokden-dark";
+        if (parsed.theme && !THEMES[parsed.theme]) {
+          parsed.theme = THEME_MIGRATION[parsed.theme] ?? "codex";
+        }
         if (parsed.accent && LEGACY_ACCENT_IDS.has(parsed.accent)) {
           parsed.accent = ACCENT_MIGRATION[parsed.accent] ?? "violet";
         }
-        if (parsed.accent && !ACCENTS[parsed.accent]) parsed.accent = "violet";
+        if (parsed.accent && !ACCENTS[parsed.accent]) {
+          parsed.accent = ACCENT_MIGRATION[parsed.accent] ?? "violet";
+        }
         if (parsed.grokModel) parsed.grokModel = migrateGrokModel(parsed.grokModel);
+        const glassMigrationKey = "Grokden.liquidGlassDefault.v1";
+        const hasMigratedGlass = localStorage.getItem(glassMigrationKey) === "1";
+        if (!hasMigratedGlass && (parsed.windowTransparency === undefined || parsed.windowTransparency === 100)) {
+          parsed.windowTransparency = DEFAULT_SETTINGS.windowTransparency;
+          localStorage.setItem(glassMigrationKey, "1");
+        }
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
     }

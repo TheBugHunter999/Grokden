@@ -187,7 +187,7 @@
         <button type="button" class="toggle" class:on={settings.enableAnimations} role="switch" aria-checked={settings.enableAnimations} aria-label="Enable Animations" onclick={() => (settings.enableAnimations = !settings.enableAnimations)}><span class="knob"></span></button></div>
     {/if}
     {#if showRow("appearance", "Window Transparency opacity glass effect")}
-      <div class="row"><div class="meta"><div class="label">Glass Strength</div><div class="desc">100% = solid window. 50% = strongest frosted glass (transparent window + CSS blur). Text and controls stay readable.</div></div>
+      <div class="row"><div class="meta"><div class="label">Liquid Glass</div><div class="desc">Lower values make the transparent window blurrier, glossier, and more translucent while keeping text readable.</div></div>
         <div class="stepper"><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency - 5, 50, 100))}>-</button><span>{settings.windowTransparency}%</span><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency + 5, 50, 100))}>+</button></div></div>
     {/if}
     {#if showRow("appearance", "Sidebar Position left right panel explorer")}
@@ -659,16 +659,17 @@
     min-height: 0;
     min-width: 0;
     overflow: hidden;
+    background: var(--editor-bg);
   }
 
   .settings-nav {
-    width: 220px;
+    width: 260px;
     flex-shrink: 0;
     min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 12px 8px;
+    padding: 12px 7px;
     background: var(--panel);
     border-right: 1px solid var(--border);
     overflow-y: auto;
@@ -678,13 +679,13 @@
   .nav-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 10px;
+    padding: 7px 10px;
     font-size: 12px;
     font-family: inherit;
     color: var(--text);
     background: var(--hover);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 8px;
     outline: none;
   }
   .nav-input:focus { border-color: var(--accent); }
@@ -698,7 +699,7 @@
     color: var(--text-mute);
     background: none;
     border: none;
-    border-radius: 5px;
+    border-radius: 7px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
@@ -712,12 +713,13 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--editor-bg);
   }
 
   .settings-header {
     flex-shrink: 0;
-    padding: 22px 34px 0;
-    max-width: 960px;
+    padding: 64px 34px 0;
+    max-width: 740px;
     width: 100%;
     margin: 0 auto;
     box-sizing: border-box;
@@ -731,25 +733,26 @@
   }
 
   .settings-inner {
-    max-width: 960px;
+    max-width: 740px;
     width: 100%;
     margin: 0 auto;
-    padding: 18px 34px 32px;
+    padding: 28px 34px 40px;
     box-sizing: border-box;
   }
 
-  .settings-tabs { display: flex; gap: 18px; margin-bottom: 18px; }
+  .settings-tabs { display: none; }
   .st-tab { font-size: 13px; color: var(--text-mute); padding-bottom: 4px; }
   .st-tab.active { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 
-  .settings-title { margin: 0; font-size: 20px; font-weight: 500; color: var(--text); }
-  .settings-note { margin: 4px 0 18px; font-size: 12px; color: var(--text-mute); }
+  .settings-title { margin: 0; font-size: 20px; font-weight: 600; color: var(--text); }
+  .settings-note { display: none; }
 
   .group-title {
-    margin: 22px 0 4px;
-    font-family: 'Cascadia Code', monospace;
+    margin: 26px 0 8px;
+    font-family: inherit;
     font-size: 12px;
-    letter-spacing: 0.04em;
+    font-weight: 600;
+    letter-spacing: 0;
     color: var(--text-mute);
   }
 
@@ -758,9 +761,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 16px 0;
+    padding: 14px 12px;
     border-bottom: 1px solid var(--border);
     min-width: 0;
+    background: var(--surface-inset);
   }
   .row.col { align-items: flex-start; flex-wrap: wrap; }
   .meta { flex: 1; min-width: 0; }
@@ -814,14 +818,14 @@
 
   .select {
     flex-shrink: 0;
-    padding: 5px 8px;
+    padding: 7px 10px;
     font-size: 12px;
     font-weight: 400;
     font-family: inherit;
     color: var(--text-dim);
     background: transparent;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 6px;
     cursor: pointer;
     outline: none;
   }
@@ -831,13 +835,13 @@
     flex-shrink: 0;
     width: 200px;
     box-sizing: border-box;
-    padding: 6px 10px;
+    padding: 6px 12px;
     font-size: 12px;
     font-family: inherit;
     color: var(--text);
     background: var(--panel-solid);
     border: 1px solid var(--border);
-    border-radius: 7px;
+    border-radius: 6px;
     outline: none;
   }
   .text-input:focus { border-color: var(--accent); }

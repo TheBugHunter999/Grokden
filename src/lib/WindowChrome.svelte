@@ -107,6 +107,7 @@
   class="window-chrome"
   class:locked
   class:maximized={expanded}
+  role="presentation"
   style:--scale-factor={scaleFactor}
   data-tauri-drag-region={locked ? undefined : true}
   onmousedown={onDragMouseDown}
@@ -119,7 +120,7 @@
   {/if}
   <div class="chrome-controls">
     <button type="button" class="chrome-btn" aria-label="Minimize" onclick={minimize}>
-      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
+      <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5.5h8" stroke="currentColor" stroke-width="1" /></svg>
     </button>
     {#if !locked}
       <button
@@ -130,19 +131,19 @@
       >
         {#if expanded}
           <svg class="icon-restore" viewBox="0 0 10 10" aria-hidden="true">
-            <path d="M2 0h6v2H4v6H2V0z" fill="none" stroke="currentColor" stroke-width="1" />
-            <path d="M4 2h6v8H4V2z" fill="none" stroke="currentColor" stroke-width="1" />
+            <path d="M3 1.5h5.5v5.5H7.3V2.7H3V1.5z" fill="currentColor" />
+            <path d="M1.5 3h5.5v5.5H1.5V3z" fill="none" stroke="currentColor" stroke-width="1" />
           </svg>
         {:else}
           <svg viewBox="0 0 10 10" aria-hidden="true">
-            <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1" />
+            <rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1" />
           </svg>
         {/if}
       </button>
     {/if}
     <button type="button" class="chrome-btn close" aria-label="Close" onclick={close}>
       <svg viewBox="0 0 10 10" aria-hidden="true">
-        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" />
+        <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" stroke-width="1.05" stroke-linecap="square" />
       </svg>
     </button>
   </div>
@@ -216,12 +217,12 @@
     background: transparent;
     padding: 0;
     margin: 0;
-    cursor: pointer;
+    cursor: default;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-mute);
-    transition: background 0.12s, color 0.12s;
+    color: color-mix(in srgb, var(--text) 76%, transparent);
+    transition: background 120ms ease-out, color 120ms ease-out;
   }
 
   .chrome-btn svg {
@@ -230,6 +231,7 @@
     display: block;
     flex-shrink: 0;
     pointer-events: none;
+    shape-rendering: crispEdges;
   }
 
   .chrome-btn .icon-restore {
@@ -238,12 +240,12 @@
   }
 
   .chrome-btn:hover {
-    background: var(--hover);
+    background: color-mix(in srgb, var(--text) 10%, transparent);
     color: var(--text);
   }
 
   .chrome-btn.close:hover {
-    background: var(--danger);
+    background: #c42b1c;
     color: #fff;
   }
 

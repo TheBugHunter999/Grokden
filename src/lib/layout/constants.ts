@@ -2,8 +2,8 @@
 export const EDITOR_MIN = 200;
 
 /** Activity rail width (px). */
-export const RAIL_WIDTH = 40;
-export const RAIL_WIDTH_COMPACT = 42;
+export const RAIL_WIDTH = 298;
+export const RAIL_WIDTH_COMPACT = 276;
 
 /** Primary sidebar defaults and bounds (px). */
 export const SIDEBAR_DEFAULT = 280;

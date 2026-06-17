@@ -64,7 +64,7 @@
   let groupedGoals = $derived(groupGoalsByCategory(goals));
   let launchLabel = $derived(
     launching
-      ? "Launching…"
+      ? "Launching..."
       : agents.length
         ? `Relaunch ${agents.length}`
         : `Launch ${agentCount} Agent${agentCount === 1 ? "" : "s"}`,
@@ -266,7 +266,7 @@
     <div class="swarm-title">
       <img class="swarm-logo" src="/favicon.png" alt="" width="20" height="20" />
       <div>
-        <h2 class="swarm-heading">Parallel Agent Swarm</h2>
+        <h2 class="swarm-heading">Parallel Agents</h2>
       </div>
     </div>
     <div class="swarm-toolbar-main">
@@ -279,7 +279,7 @@
             aria-label="Fewer agents"
             disabled={agentCount <= 1 || agents.length > 0}
             onclick={() => (agentCount = clampAgentCount(agentCount - 1))}
-          >−</button>
+          >-</button>
           <span class="count-value">{agents.length || agentCount}</span>
           <button
             type="button"
@@ -385,8 +385,8 @@
                 <span class="cell-status" class:running={agent.status === "running"}>
                   {statusLabel[agent.status]}
                 </span>
-                <button type="button" class="cell-relaunch" title="Relaunch terminal" onclick={() => relaunchAgent(agent.id)}>↻</button>
-                <button type="button" class="cell-close" title="Remove agent" onclick={() => removeAgent(agent.id)}>×</button>
+                <button type="button" class="cell-relaunch" title="Relaunch terminal" onclick={() => relaunchAgent(agent.id)}>R</button>
+                <button type="button" class="cell-close" title="Remove agent" onclick={() => removeAgent(agent.id)}>x</button>
               </div>
             </div>
             <div class="cell-terminal">
@@ -405,7 +405,7 @@
                     onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
                   />
               {:else}
-                <div class="cell-idle">Press Launch or ↻ to start this agent</div>
+                <div class="cell-idle">Press Launch or R to start this agent</div>
               {/if}
             </div>
           </div>
@@ -455,7 +455,7 @@
 
       <div class="board-scroll">
         {#if goals.length === 0}
-          <p class="board-empty">No goals yet. Add one above to plan your swarm.</p>
+          <p class="board-empty">No goals yet. Add one above to plan your agent run.</p>
         {:else}
           {#each [...groupedGoals.entries()] as [category, items] (items.map((g) => g.id).join("|"))}
             <div class="board-section">
@@ -494,7 +494,7 @@
                       >
                         Label slot
                       </button>
-                      <button type="button" class="goal-remove" title="Remove goal" onclick={() => removeGoal(goal.id)}>×</button>
+                      <button type="button" class="goal-remove" title="Remove goal" onclick={() => removeGoal(goal.id)}>x</button>
                     </div>
                   </li>
                 {/each}
@@ -529,12 +529,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    height: 36px;
-    min-height: 36px;
-    max-height: 36px;
-    padding: 0 12px;
+    height: 44px;
+    min-height: 44px;
+    max-height: 44px;
+    padding: 0 14px;
     border-bottom: 1px solid var(--border);
-    background: var(--panel-solid);
+    background: var(--editor-bg);
     flex-shrink: 0;
     flex-wrap: nowrap;
     overflow: hidden;
@@ -552,11 +552,12 @@
   .swarm-logo {
     width: 20px;
     height: 20px;
-    border-radius: 4px;
+    border-radius: 5px;
     flex-shrink: 0;
+    opacity: 0.9;
   }
 
-  .swarm-heading { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); letter-spacing: 0.01em; }
+  .swarm-heading { margin: 0; font-size: 13px; font-weight: 500; color: var(--text); letter-spacing: 0; }
 
   .swarm-toolbar-main {
     display: flex;
@@ -622,7 +623,7 @@
     align-items: center;
     gap: 2px;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 7px;
     overflow: hidden;
   }
   .count-btn {
@@ -646,13 +647,13 @@
 
   .swarm-btn {
     flex: 0 0 auto;
-    padding: 4px 10px;
+    padding: 5px 11px;
     font-size: 11px;
     font-family: inherit;
     color: var(--text-dim);
     background: transparent;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: 7px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
@@ -680,22 +681,25 @@
   .agent-grid {
     flex: 1 1 0;
     display: grid;
-    gap: 1px;
+    gap: 10px;
     min-width: 0;
     min-height: 0;
     height: 100%;
     align-content: stretch;
-    background: var(--border);
-    overflow-x: auto;
-    overflow-y: hidden;
+    background: transparent;
+    padding: 12px;
+    box-sizing: border-box;
+    overflow: auto;
   }
 
   .agent-cell {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    min-width: min(100%, 240px);
-    background: var(--editor-bg, var(--bg));
+    min-width: min(100%, 260px);
+    background: var(--surface-inset, var(--editor-bg, var(--bg)));
+    border: 1px solid var(--border);
+    border-radius: 8px;
     overflow: hidden;
     position: relative;
     transition: background 0.15s ease;
@@ -735,17 +739,17 @@
   }
 
   .agent-cell.empty-slot {
-    background: color-mix(in srgb, var(--panel) 35%, var(--editor-bg, var(--bg)));
-    box-shadow: inset 0 0 0 1px var(--border);
+    background: color-mix(in srgb, var(--panel) 28%, var(--editor-bg, var(--bg)));
+    box-shadow: inset 0 0 0 1px var(--border-muted);
   }
 
   .cell-head {
     display: flex;
     align-items: center;
     gap: 5px;
-    height: 22px;
-    padding: 0 6px;
-    background: var(--panel-solid);
+    height: 32px;
+    padding: 0 9px;
+    background: var(--surface-raised, var(--panel-solid));
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-width: 0;
@@ -788,10 +792,10 @@
   }
 
   .cell-index { font-size: 10px; color: var(--text-mute); width: 14px; }
-  .empty-slot .cell-head { height: 20px; }
+  .empty-slot .cell-head { height: 32px; }
 
   .cell-title {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text);
     flex: 1 1 auto;
@@ -808,12 +812,12 @@
     overflow: hidden;
   }
   .cell-status {
-    font-size: 9px;
+    font-size: 10px;
     color: var(--text-mute);
     flex-shrink: 0;
     white-space: nowrap;
     padding: 1px 5px;
-    border-radius: 3px;
+    border-radius: 5px;
     background: var(--chip-bg);
     border: 1px solid var(--border);
   }
@@ -827,24 +831,26 @@
   }
 
   .cell-relaunch, .cell-close {
-    padding: 0 4px;
-    font-size: 12px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    font-size: 10px;
     color: var(--text-mute);
     background: none;
     border: none;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: 5px;
   }
   .cell-relaunch:hover, .cell-close:hover { background: var(--hover); color: var(--text); }
 
   .empty-body {
     flex: 1;
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding: 8px 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
   }
-  .empty-hint { font-size: 10px; color: var(--text-mute); font-family: var(--code-font, monospace); }
+  .empty-hint { font-size: 11px; color: var(--text-mute); font-family: var(--code-font, monospace); text-align: center; }
 
   .cell-terminal {
     flex: 1 1 0;
@@ -863,15 +869,16 @@
   .cell-idle {
     flex: 1;
     display: flex;
-    align-items: flex-start;
-    padding: 8px 10px;
-    font-size: 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    font-size: 11px;
     color: var(--text-mute);
     font-family: var(--code-font, monospace);
   }
 
   .mission-board {
-    width: min(240px, 32vw);
+    width: min(280px, 34vw);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;

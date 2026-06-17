@@ -133,7 +133,7 @@
   function createTerminalOptions(el: HTMLElement) {
     return {
       fontSize: settings.terminalFontSize,
-      lineHeight: 1,
+      lineHeight: 1.3,
       letterSpacing: 0,
       scrollback: settings.terminalScrollback,
       cursorStyle: xtermCursorStyle(settings.terminalCursorStyle),
@@ -164,7 +164,7 @@
     term.options.fontSize = compact
       ? Math.max(10, settings.terminalFontSize - 2)
       : settings.terminalFontSize;
-    term.options.lineHeight = compact ? 1.05 : 1;
+    term.options.lineHeight = compact ? 1.2 : 1.3;
     term.options.letterSpacing = 0;
     term.options.scrollback = settings.terminalScrollback;
     term.options.cursorStyle = xtermCursorStyle(settings.terminalCursorStyle);
@@ -684,12 +684,13 @@
     min-height: 0;
     min-width: 0;
     overflow: hidden;
-    padding: 4px 6px 4px 4px;
+    padding: 6px 8px;
+    border-top: 1px solid var(--border);
     box-sizing: border-box;
   }
 
   .terminal-wrap.compact .terminal-host {
-    padding: 4px 6px;
+    padding: 6px 8px;
   }
 
   .terminal-host.has-helper {
@@ -705,7 +706,7 @@
   :global(.terminal-host .xterm-viewport) {
     overflow-y: auto !important;
     scrollbar-width: thin;
-    scrollbar-color: rgba(121, 121, 121, 0.35) transparent;
+    scrollbar-color: var(--scrollbar) transparent;
   }
 
   :global(.terminal-host .xterm-viewport::-webkit-scrollbar) {
@@ -713,7 +714,11 @@
   }
 
   :global(.terminal-host .xterm-viewport::-webkit-scrollbar-thumb) {
-    background: rgba(121, 121, 121, 0.35);
+    background: var(--scrollbar);
     border-radius: 4px;
+  }
+
+  :global(.terminal-host .xterm-viewport::-webkit-scrollbar-thumb:hover) {
+    background: var(--scrollbar-hover);
   }
 </style>
