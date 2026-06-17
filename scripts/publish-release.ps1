@@ -8,7 +8,7 @@
     gh auth login
 
   Run after a successful signed release build:
-    $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\grokden.key" -Raw
+    .\scripts\load-signing-env.ps1
     npm run tauri build
     .\scripts\verify-release.ps1
     .\scripts\publish-release.ps1
@@ -29,6 +29,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+$SigningLoader = Join-Path $PSScriptRoot 'load-signing-env.ps1'
+if (Test-Path -LiteralPath $SigningLoader) {
+    . $SigningLoader
+}
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $ConfPath = Join-Path $RepoRoot 'src-tauri\tauri.conf.json'
@@ -75,17 +80,19 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version - Stable release. Windows desktop workspace for Grok CLI.
+Grokden $version — Beta stable release. Windows desktop workspace for Grok CLI.
+
+> **Beta:** This is a feature-complete early release. Expect bugs and rough edges; report issues on GitHub.
 
 ## What's new
 
 - Complete Grokden branding (window title, UI labels, legacy storage migration)
 - Premium Grok theme with polished dark glass UI
 - CSS backdrop-filter glassmorphism and liquid-glass layout polish
-- Fix panel/terminal toggle freeze (MutationObserver storm)
-- Layout bridge for reliable terminal panel toggling
-- README welcome-screen screenshot and onboarding showcase
-- In-app auto-updater with signed NSIS updates
+- Parallel Agent Swarm with calmer IDE-style UI
+- Status bar and window layout fixes (fullscreen, narrow window)
+- Panel/terminal toggle stability (layout bridge)
+- In-app auto-updater with signed NSIS updates (new signing key in v0.2.1+)
 
 ## Requirements
 
@@ -124,7 +131,7 @@ Grokden also needs the Microsoft Edge WebView2 runtime. The installers below ins
 
 $latestJson = @{
     version = $version
-    notes = "- Stable Grokden branding and Premium Grok theme`n- Glassmorphism UI polish and layout controls`n- Panel/terminal toggle stability fixes`n- Signed in-app auto-updater"
+    notes = "- Beta stable release — expect bugs`n- Premium Grok theme and glass UI`n- Parallel agents, layout fixes, signed auto-updater`n- v0.2.1+ uses new updater signing key"
     pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     platforms = @{
         'windows-x86_64' = @{

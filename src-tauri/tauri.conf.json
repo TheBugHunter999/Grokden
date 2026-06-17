@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Grokden",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.grokden.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -64,7 +64,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJCOEIzN0I4MEIzODFBRDQKUldUVUdqZ0x1RGVMdXhoVHJKYzViREQxRlJqVm56a3pFODlUMlkvVTZnclpoTWhTRVJyYmF4TGUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENEMUU3M0E0MTY3MDhERDQKUldUVWpYQVdwSE1lemUxN0hqZTlKeVlHSDBFb1ZFUzJob2JpcjZoWC8wUDA2VHUyWERoeE0zTmIK",
       "endpoints": [
         "https://github.com/TheBugHunter999/Grokden/releases/latest/download/latest.json"
       ],
