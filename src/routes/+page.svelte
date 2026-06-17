@@ -1489,7 +1489,7 @@
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
-      <span class="version-pill">v0.1.4</span>
+      <span class="version-pill">v0.1.5</span>
     </div>
 
     <div class="command-hint" data-tauri-drag-region>

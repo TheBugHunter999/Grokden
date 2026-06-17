@@ -476,7 +476,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   centeredLayout: false,
   titleBarStyle: "custom",
   openFoldersInNewWindow: false,
-  windowRestoreFullscreen: true,
+  windowRestoreFullscreen: false,
   panelDefaultLocation: "bottom",
   panelDefaultSize: 320,
   autoHidePanels: false,

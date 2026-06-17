@@ -1,7 +1,12 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { LogicalSize } from "@tauri-apps/api/dpi";
   import { getCurrentWindow } from "@tauri-apps/api/window";
-  import { emitViewportSync } from "$lib/viewport-sync";
+  import { emitViewportSync, setNativeFullscreen } from "$lib/viewport-sync";
+  import {
+    DEFAULT_WINDOW_HEIGHT,
+    DEFAULT_WINDOW_WIDTH,
+  } from "$lib/window-lifecycle";
 
   let {
     locked = false,
@@ -11,8 +16,18 @@
   } = $props();
 
   let maximized = $state(false);
+  let fullscreen = $state(false);
   let scaleFactor = $state(1);
   let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
+
+  let expanded = $derived(maximized || fullscreen);
+
+  async function syncWindowState() {
+    if (!appWindow) return;
+    fullscreen = await appWindow.isFullscreen();
+    maximized = await appWindow.isMaximized();
+    setNativeFullscreen(fullscreen);
+  }
 
   onMount(() => {
     let unlistenResized: (() => void) | undefined;
@@ -21,10 +36,10 @@
     void (async () => {
       try {
         appWindow = getCurrentWindow();
-        maximized = await appWindow.isMaximized();
+        await syncWindowState();
         scaleFactor = await appWindow.scaleFactor();
         unlistenResized = await appWindow.onResized(async () => {
-          if (appWindow) maximized = await appWindow.isMaximized();
+          await syncWindowState();
           emitViewportSync();
         });
         unlistenScale = await appWindow.onScaleChanged(({ payload }) => {
@@ -49,10 +64,24 @@
     void appWindow?.minimize();
   }
 
+  async function restoreFromFullscreen() {
+    if (!appWindow) return;
+    await appWindow.setFullscreen(false);
+    if (await appWindow.isMaximized()) {
+      await appWindow.unmaximize();
+    }
+    await appWindow.setSize(new LogicalSize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT));
+    await appWindow.center();
+  }
+
   async function toggleMaximize() {
-    if (locked) return;
-    await appWindow?.toggleMaximize();
-    if (appWindow) maximized = await appWindow.isMaximized();
+    if (locked || !appWindow) return;
+    if (await appWindow.isFullscreen()) {
+      await restoreFromFullscreen();
+    } else {
+      await appWindow.toggleMaximize();
+    }
+    await syncWindowState();
     emitViewportSync();
   }
 
@@ -75,7 +104,7 @@
 <div
   class="window-chrome"
   class:locked
-  class:maximized
+  class:maximized={expanded}
   style:--scale-factor={scaleFactor}
   data-tauri-drag-region={locked ? undefined : true}
   onmousedown={onDragMouseDown}
@@ -89,10 +118,10 @@
       <button
         type="button"
         class="chrome-btn"
-        aria-label={maximized ? "Restore" : "Maximize"}
+        aria-label={fullscreen ? "Exit fullscreen" : maximized ? "Restore" : "Maximize"}
         onclick={toggleMaximize}
       >
-        {#if maximized}
+        {#if expanded}
           <svg class="icon-restore" viewBox="0 0 10 10" aria-hidden="true">
             <path d="M2 0h6v2H4v6H2V0z" fill="none" stroke="currentColor" stroke-width="1" />
             <path d="M4 2h6v8H4V2z" fill="none" stroke="currentColor" stroke-width="1" />

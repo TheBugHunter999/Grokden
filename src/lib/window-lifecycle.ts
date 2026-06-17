@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { emitViewportSync, setNativeFullscreen } from "$lib/viewport-sync";
+
+export const DEFAULT_WINDOW_WIDTH = 1080;
+export const DEFAULT_WINDOW_HEIGHT = 720;
 
 export async function prepareWizardWindow(): Promise<void> {
   try {
@@ -35,7 +39,9 @@ export async function restoreFullscreenIfRequested(enabled: boolean): Promise<vo
     const win = getCurrentWindow();
     const fs = await win.isFullscreen();
     if (!fs) await win.setFullscreen(true);
+    setNativeFullscreen(await win.isFullscreen());
+    emitViewportSync();
   } catch {
-    // Browser dev fallback.
+    setNativeFullscreen(false);
   }
 }

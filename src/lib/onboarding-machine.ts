@@ -103,7 +103,7 @@ export function draftToSettings(draft: OnboardingDraft): Partial<AppSettings> {
     telemetryEnabled: draft.telemetryEnabled,
     crashReportsEnabled: draft.crashReportsEnabled,
     privacyImprovementConsent: draft.privacyImprovementConsent,
-    windowRestoreFullscreen: true,
+    windowRestoreFullscreen: false,
     onboardingCompleted: true,
   };
 }

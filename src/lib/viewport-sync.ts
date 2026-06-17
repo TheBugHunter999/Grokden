@@ -2,8 +2,15 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export const VIEWPORT_SYNC_EVENT = "grokden:viewport-sync";
 
+const WORK_AREA_HEIGHT_SLACK = 8;
+
 let rafPending = false;
 let burstTimer: ReturnType<typeof setTimeout> | undefined;
+let nativeFullscreenActive = false;
+
+export function setNativeFullscreen(active: boolean): void {
+  nativeFullscreenActive = active;
+}
 
 /** Prefer visualViewport / inner* — client* can mirror a stale fixed shell after fullscreen. */
 export function readViewportSize(): { width: number; height: number } {
@@ -11,8 +18,21 @@ export function readViewportSize(): { width: number; height: number } {
     return { width: 0, height: 0 };
   }
   const vv = window.visualViewport;
-  const width = vv?.width ?? window.innerWidth;
-  const height = vv?.height ?? window.innerHeight;
+  let width = vv?.width ?? window.innerWidth;
+  let height = vv?.height ?? window.innerHeight;
+
+  if (nativeFullscreenActive && typeof screen !== "undefined") {
+    const screenW = screen.width;
+    const screenH = screen.height;
+    if (
+      height <= screenH - WORK_AREA_HEIGHT_SLACK ||
+      width <= screenW - WORK_AREA_HEIGHT_SLACK
+    ) {
+      width = screenW;
+      height = screenH;
+    }
+  }
+
   return { width, height };
 }
 
@@ -58,7 +78,16 @@ export function emitViewportSync(): void {
   window.dispatchEvent(new CustomEvent(VIEWPORT_SYNC_EVENT));
 }
 
+async function refreshNativeFullscreenFlag(): Promise<void> {
+  try {
+    setNativeFullscreen(await getCurrentWindow().isFullscreen());
+  } catch {
+    setNativeFullscreen(false);
+  }
+}
+
 export async function bindViewportSync(onSync?: () => void): Promise<() => void> {
+  await refreshNativeFullscreenFlag();
   syncViewportSize();
 
   const handle = () => {
@@ -66,9 +95,11 @@ export async function bindViewportSync(onSync?: () => void): Promise<() => void>
     onSync?.();
   };
 
-  const onResize = () => handle();
+  const onResize = () => {
+    void refreshNativeFullscreenFlag().then(handle);
+  };
   const onVisibility = () => {
-    if (document.visibilityState === "visible") handle();
+    if (document.visibilityState === "visible") onResize();
   };
 
   window.addEventListener("resize", onResize);
@@ -90,9 +121,9 @@ export async function bindViewportSync(onSync?: () => void): Promise<() => void>
 
   try {
     const win = getCurrentWindow();
-    unlistenResized = await win.onResized(() => handle());
-    unlistenScale = await win.onScaleChanged(() => handle());
-    unlistenFocus = await win.onFocusChanged(() => handle());
+    unlistenResized = await win.onResized(() => onResize());
+    unlistenScale = await win.onScaleChanged(() => onResize());
+    unlistenFocus = await win.onFocusChanged(() => onResize());
   } catch {
     /* browser dev */
   }
