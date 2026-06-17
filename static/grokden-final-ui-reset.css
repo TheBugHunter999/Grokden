@@ -1,0 +1,155 @@
+/* Final visual reset for the rough UI patches. Loaded last. */
+
+/* Clean, professional editor tabs. */
+.ide .tab-bar,
+.ide.glass-window .tab-bar {
+  height: 33px !important;
+  padding: 3px 8px 0 !important;
+  gap: 2px !important;
+  align-items: flex-end !important;
+  background: #181c21 !important;
+  border-bottom: 1px solid #2a3038 !important;
+  box-shadow: none !important;
+}
+
+.ide .tab,
+.ide.glass-window .tab {
+  position: relative !important;
+  height: 30px !important;
+  min-width: 82px !important;
+  max-width: 210px !important;
+  padding: 0 11px !important;
+  margin: 0 !important;
+  border: 1px solid transparent !important;
+  border-bottom: 0 !important;
+  border-radius: 7px 7px 0 0 !important;
+  background: transparent !important;
+  color: #a9b2bf !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+
+.ide .tab:hover,
+.ide.glass-window .tab:hover {
+  background: #20262d !important;
+  color: #dce3ec !important;
+  border-color: #2d3540 !important;
+}
+
+.ide .tab.active,
+.ide.glass-window .tab.active {
+  background: #1f252c !important;
+  color: #f3f7fb !important;
+  border-color: #33404a !important;
+  box-shadow: none !important;
+}
+
+.ide .tab.active::after,
+.ide.glass-window .tab.active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 10px !important;
+  right: 10px !important;
+  bottom: 0 !important;
+  height: 2px !important;
+  background: #5cc9c7 !important;
+  border-radius: 999px !important;
+  opacity: 1 !important;
+}
+
+.ide .tab-badge,
+.ide.glass-window .tab-badge,
+.ide .settings-badge,
+.ide.glass-window .settings-badge {
+  display: none !important;
+}
+
+.ide .tab-name,
+.ide.glass-window .tab-name {
+  font-weight: 500 !important;
+  text-shadow: none !important;
+}
+
+.ide .tab-close,
+.ide.glass-window .tab-close {
+  opacity: 0.55 !important;
+  color: #a7b0bd !important;
+}
+
+.ide .tab-close:hover,
+.ide.glass-window .tab-close:hover {
+  opacity: 1 !important;
+  color: #f3f7fb !important;
+  background: rgba(255,255,255,0.08) !important;
+}
+
+/* Solid side panels. This removes the ghost overlay/layer look when switching Files and Source Control. */
+.ide .sidebar,
+.ide.glass-window .sidebar,
+.ide .explorer-panel,
+.ide .source-control-panel,
+.ide .search-panel,
+.ide .file-tree,
+.ide .virtual-viewport,
+.ide .virtual-window,
+.ide .virtual-spacer {
+  background: #11161d !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+.ide .sidebar,
+.ide.glass-window .sidebar {
+  border-right: 1px solid #27313a !important;
+  overflow: hidden !important;
+}
+
+.ide .source-control-panel,
+.ide .search-panel,
+.ide .explorer-panel {
+  min-height: 100% !important;
+  isolation: isolate !important;
+}
+
+.ide .source-control-panel *,
+.ide .search-panel *,
+.ide .explorer-panel * {
+  text-shadow: none !important;
+}
+
+/* Reliable smooth terminal hide state. */
+.ide .terminal,
+.ide.glass-window .terminal {
+  transition:
+    max-height 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 150ms ease,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: height, max-height, opacity, transform;
+}
+
+.ide.grokden-terminal-final-hidden .terminal {
+  display: flex !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(6px) !important;
+  border-top-color: transparent !important;
+}
+
+/* Stop old hidden classes from creating broken one-way states. */
+.ide:not(.grokden-terminal-final-hidden).grokden-panel-safe-hidden .terminal,
+.ide:not(.grokden-terminal-final-hidden).grokden-terminal-hidden .terminal,
+.ide:not(.grokden-terminal-final-hidden).liquid-terminal-force-closed .terminal {
+  height: auto !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+}
