@@ -101,6 +101,7 @@
   import ParallelAgents from "$lib/ParallelAgents.svelte";
   import AgentActivityFeed from "$lib/AgentActivityFeed.svelte";
   import WindowChrome from "$lib/WindowChrome.svelte";
+  import { bindViewportSync } from "$lib/viewport-sync";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
   import ExplorerPanel from "$lib/explorer/ExplorerPanel.svelte";
   import QuickOpen from "$lib/explorer/QuickOpen.svelte";
@@ -1282,17 +1283,15 @@
     void setTelemetryEnabled(updated.telemetryEnabled);
   }
 
-  function syncViewportSize() {
-    if (typeof document === "undefined") return;
-    const h = window.innerHeight;
-    const w = window.innerWidth;
-    document.documentElement.style.setProperty("--app-height", `${h}px`);
-    document.documentElement.style.setProperty("--app-width", `${w}px`);
-  }
+  let unbindViewportSync: (() => void) | undefined;
 
   onMount(() => {
-    syncViewportSize();
-    window.addEventListener("resize", syncViewportSize);
+    void bindViewportSync(() => {
+      measureWorkspaceBody();
+      runLayoutReconcile();
+    }).then((unbind) => {
+      unbindViewportSync = unbind;
+    });
     if (settings.startupBehavior === "empty" || settings.startupBehavior === "welcome") {
       tabs = [];
       activeTabPath = null;
@@ -1320,7 +1319,7 @@
   });
 
   onDestroy(() => {
-    window.removeEventListener("resize", syncViewportSize);
+    unbindViewportSync?.();
     clearTimeout(autoSaveTimer);
     clearTimeout(sessionPersistTimer);
     if (gitFetchTimer) clearInterval(gitFetchTimer);
@@ -1490,7 +1489,7 @@
     <div class="topbar-left" data-tauri-drag-region>
       <img class="logo-img" src="/favicon.png" alt="" width="22" height="22" />
       <span class="app-name">Grokden</span>
-      <span class="version-pill">v0.1.2</span>
+      <span class="version-pill">v0.1.3</span>
     </div>
 
     <div class="command-hint" data-tauri-drag-region>
@@ -2114,10 +2113,8 @@ This is a very long debug log line that demonstrates whether the debug console w
     padding: 0;
     position: fixed;
     inset: 0;
-    width: var(--app-width, 100%);
-    height: var(--app-height, 100%);
-    max-width: var(--app-width, 100%);
-    max-height: var(--app-height, 100%);
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -2133,16 +2130,10 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide {
-    /* --app-height is synced from window.innerHeight (WebView2 can otherwise leave
-       a #09090d strip below the shell). */
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     width: 100%;
-    height: var(--app-height, 100%);
-    max-height: var(--app-height, 100%);
+    height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--bg);
@@ -2760,9 +2751,11 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .editor-placeholder {
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
     min-width: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -2770,6 +2763,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     gap: 4px;
     padding: 28px 32px;
     overflow: auto;
+    background: var(--editor-bg);
     color: var(--text-mute);
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
@@ -3295,7 +3289,7 @@ This is a very long debug log line that demonstrates whether the debug console w
     height: 24px;
     padding: 0 12px;
     flex: 0 0 auto;
-    margin-top: auto;
+    flex-shrink: 0;
     background: var(--panel-solid);
     border-top: 1px solid var(--border);
     font-size: 11px;

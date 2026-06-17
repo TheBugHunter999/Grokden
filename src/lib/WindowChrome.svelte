@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { emitViewportSync } from "$lib/viewport-sync";
 
   let {
     locked = false,
@@ -16,6 +17,7 @@
   onMount(() => {
     let unlistenResized: (() => void) | undefined;
     let unlistenScale: (() => void) | undefined;
+    let unlistenFocus: (() => void) | undefined;
     void (async () => {
       try {
         appWindow = getCurrentWindow();
@@ -23,9 +25,14 @@
         scaleFactor = await appWindow.scaleFactor();
         unlistenResized = await appWindow.onResized(async () => {
           if (appWindow) maximized = await appWindow.isMaximized();
+          emitViewportSync();
         });
         unlistenScale = await appWindow.onScaleChanged(({ payload }) => {
           scaleFactor = payload.scaleFactor;
+          emitViewportSync();
+        });
+        unlistenFocus = await appWindow.onFocusChanged(() => {
+          emitViewportSync();
         });
       } catch {
         /* browser dev */
@@ -34,6 +41,7 @@
     return () => {
       unlistenResized?.();
       unlistenScale?.();
+      unlistenFocus?.();
     };
   });
 
@@ -41,9 +49,11 @@
     void appWindow?.minimize();
   }
 
-  function toggleMaximize() {
+  async function toggleMaximize() {
     if (locked) return;
-    void appWindow?.toggleMaximize();
+    await appWindow?.toggleMaximize();
+    if (appWindow) maximized = await appWindow.isMaximized();
+    emitViewportSync();
   }
 
   function close() {
@@ -55,7 +65,7 @@
     const target = e.target as HTMLElement;
     if (target.closest("button, a, input, select, textarea")) return;
     if (e.detail === 2) {
-      void appWindow.toggleMaximize();
+      void toggleMaximize();
       return;
     }
     void appWindow.startDragging();
