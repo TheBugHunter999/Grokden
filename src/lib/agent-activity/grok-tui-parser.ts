@@ -1,4 +1,4 @@
-import type { AgentStep, StepKind, ToolKind } from "$lib/agent-activity/types";
+import type { StepKind, ToolKind } from "$lib/agent-activity/types";
 import { AnsiStripper, sanitizeDisplayText } from "$lib/agent-activity/grok-ansi";
 import { shortPath } from "$lib/agent-activity/display-text";
 
@@ -7,15 +7,49 @@ export type ParserEvent =
   | { type: "step_end"; title?: string }
   | { type: "status"; title: string };
 
+const LEADING_STATUS_MARK = /^(?:[>›*•●○◦\-–—▶]\s*)?/;
+
 const TOOL_PATTERNS: { re: RegExp; kind: ToolKind; label: (m: RegExpMatchArray) => string }[] = [
-  { re: /read(?:ing)?\s+[`'"]?([^\s`'"\\]+)/i, kind: "read", label: (m) => `Reading ${shortPath(m[1])}` },
-  { re: /write(?:ing)?\s+[`'"]?([^\s`'"\\]+)/i, kind: "write", label: (m) => `Writing ${shortPath(m[1])}` },
-  { re: /edit(?:ing)?\s+[`'"]?([^\s`'"\\]+)/i, kind: "write", label: (m) => `Editing ${shortPath(m[1])}` },
-  { re: /(?:run(?:ning)?|exec(?:ute)?)\s+[`'"]?([^\n`'"\\]{3,})/i, kind: "execute", label: (m) => `Running ${trimCmd(m[1])}` },
-  { re: /grep(?:ping)?\s+[`'"]?([^\n`'"\\]{2,})/i, kind: "search", label: (m) => `Searching ${trimCmd(m[1])}` },
-  { re: /image-to-video\s+(.+)/i, kind: "execute", label: (m) => `Video: ${trimCmd(m[1])}` },
-  { re: /\/imagine(?:-video)?\s+(.+)/i, kind: "execute", label: (m) => `Imagine: ${trimCmd(m[1])}` },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?(?:read(?:ing)?|open(?:ing)?)\s+(?:file\s+)?[`'"]?([^`'"\n]{2,140})[`'"]?\s*$/i,
+    kind: "read",
+    label: (m) => `Reading ${shortPath(cleanTarget(m[1]))}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?(?:writ(?:e|ing)|sav(?:e|ing)|creat(?:e|ing))\s+(?:file\s+)?[`'"]?([^`'"\n]{2,140})[`'"]?\s*$/i,
+    kind: "write",
+    label: (m) => `Writing ${shortPath(cleanTarget(m[1]))}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?(?:edit(?:ing)?|patch(?:ing)?|updat(?:e|ing))\s+(?:file\s+)?[`'"]?([^`'"\n]{2,140})[`'"]?\s*$/i,
+    kind: "write",
+    label: (m) => `Editing ${shortPath(cleanTarget(m[1]))}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?(?:run(?:ning)?|exec(?:uting)?|executed)\s+(?:command\s+)?[`'"]?([^`'"\n]{3,160})[`'"]?\s*$/i,
+    kind: "execute",
+    label: (m) => `Running ${trimCmd(m[1])}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?(?:grep(?:ping)?|search(?:ing)?)\s+(?:for\s+)?[`'"]?([^`'"\n]{2,140})[`'"]?\s*$/i,
+    kind: "search",
+    label: (m) => `Searching ${trimCmd(m[1])}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?image-to-video\s+(.{3,140})$/i,
+    kind: "execute",
+    label: (m) => `Video: ${trimCmd(m[1])}`,
+  },
+  {
+    re: /^(?:[>›*•●○◦\-–—▶]\s*)?\/imagine(?:-video)?\s+(.{3,140})$/i,
+    kind: "execute",
+    label: (m) => `Imagine: ${trimCmd(m[1])}`,
+  },
 ];
+
+function cleanTarget(value: string): string {
+  return sanitizeDisplayText(value.replace(/[.,;:]$/, ""), 80);
+}
 
 function trimCmd(cmd: string): string {
   return sanitizeDisplayText(cmd, 48);
@@ -23,7 +57,35 @@ function trimCmd(cmd: string): string {
 
 function normalizeLine(raw: string): string {
   const idx = raw.lastIndexOf("\r");
-  return (idx >= 0 ? raw.slice(idx + 1) : raw).trim();
+  return sanitizeDisplayText(idx >= 0 ? raw.slice(idx + 1) : raw, 220);
+}
+
+function looksLikePromptOrEcho(line: string): boolean {
+  return (
+    /^(?:PS\s+)?[A-Za-z]:[\\/].*[>#$]\s*/.test(line) ||
+    /^\w+@[\w.-]+:.*[$#]\s*/.test(line) ||
+    /^\$\s+/.test(line) ||
+    /^>\s*(?:npm|pnpm|yarn|git|cargo|tauri|node|python|grok)\b/i.test(line)
+  );
+}
+
+function looksLikeTuiNoise(line: string): boolean {
+  if (/\u001b|[\u2500-\u257f�]/.test(line)) return true;
+  if (/^[\W_]+$/.test(line)) return true;
+
+  const body = line.replace(LEADING_STATUS_MARK, "");
+  if (!body || body.length > 180) return true;
+
+  const oddChars = body.replace(/[\p{L}\p{N}\s._/@:+=,()\[\]{}'"`\\\-]/gu, "").length;
+  return oddChars > Math.max(5, body.length * 0.28);
+}
+
+function isSafeActivityLine(line: string): boolean {
+  if (line.length < 3 || line.length > 180) return false;
+  if (looksLikePromptOrEcho(line)) return false;
+  if (looksLikeTuiNoise(line)) return false;
+  if (/^(?:user|assistant|system|error|warning):/i.test(line)) return false;
+  return true;
 }
 
 export class GrokTuiParser {
@@ -76,17 +138,17 @@ export class GrokTuiParser {
   }
 
   private matchLine(line: string): ParserEvent | null {
-    if (line.length < 3) return null;
+    if (!isSafeActivityLine(line)) return null;
 
-    if (/think(?:ing)?/i.test(line)) {
+    if (/^(?:[>›*•●○◦\-–—▶]\s*)?(?:thinking|reasoning|analyzing|planning|working)(?:[.… ]*)$/i.test(line)) {
       return { type: "step_start", title: "Thinking…", kind: "thought" };
     }
 
-    if (/approv|confirm|permission|waiting for/i.test(line)) {
+    if (/^(?:[>›*•●○◦\-–—▶]\s*)?(?:waiting for|needs|requires|requesting).{0,36}(?:approval|permission|confirm)/i.test(line)) {
       return { type: "step_start", title: "Waiting for your approval", kind: "permission" };
     }
 
-    if (/loading/i.test(line) && line.length < 40) {
+    if (/^(?:[>›*•●○◦\-–—▶]\s*)?loading[.… ]*$/i.test(line)) {
       return { type: "step_start", title: "Loading…", kind: "thought" };
     }
 
@@ -100,7 +162,7 @@ export class GrokTuiParser {
         title,
         kind: "tool_call",
         toolKind: pat.kind,
-        files: m[1] ? [m[1]] : undefined,
+        files: m[1] ? [cleanTarget(m[1])] : undefined,
       };
     }
 
