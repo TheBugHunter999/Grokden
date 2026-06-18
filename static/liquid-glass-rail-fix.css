@@ -1,6 +1,8 @@
 /*
-  Fix for the tall ghost-pill artifact on the left navigation rail.
-  The rail should stay a calm edge surface. Only the actual buttons should glow on hover.
+  Fix for the tall ghost-pill / thin dark vertical bar beside the left navigation rail.
+  Root causes:
+  - liquid-glass-polish adds outward box-shadows and an 8px left margin on .editor-area
+  - hover repaints on rail rows made that seam visible under the Welcome tab area
 */
 
 .ide.glass-window .activity-rail {
@@ -13,11 +15,13 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 44%, rgba(0, 0, 0, 0.035)),
     color-mix(in srgb, var(--glass-rail-bg, var(--panel)) 88%, rgba(8, 10, 16, 0.22)) !important;
-  box-shadow:
-    inset -1px 0 0 rgba(255, 255, 255, 0.035),
-    1px 0 0 rgba(0, 0, 0, 0.16) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.035) !important;
   backdrop-filter: blur(calc(18px + 22px * var(--glass-strength, 0.5))) saturate(1.32) contrast(1.03) !important;
   -webkit-backdrop-filter: blur(calc(18px + 22px * var(--glass-strength, 0.5))) saturate(1.32) contrast(1.03) !important;
+  contain: paint;
+  isolation: isolate;
+  overflow: hidden;
+  z-index: 2;
 }
 
 .ide.glass-window .workspace.sidebar-right .activity-rail,
@@ -25,9 +29,7 @@
   margin: 0 !important;
   border-right: 0 !important;
   border-left: 1px solid color-mix(in srgb, var(--glass-border, var(--border)) 70%, transparent) !important;
-  box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.035),
-    -1px 0 0 rgba(0, 0, 0, 0.16) !important;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.035) !important;
 }
 
 .ide.glass-window .activity-rail::before,
@@ -36,17 +38,27 @@
   display: none !important;
 }
 
+.ide.glass-window .activity-rail .codex-primary-actions,
+.ide.glass-window .activity-rail .codex-section {
+  overflow: hidden;
+  contain: paint;
+}
+
 .ide.glass-window .activity-rail .rail-btn,
 .ide.glass-window .activity-rail .codex-list-row,
 .ide.glass-window .activity-rail .codex-project-row {
   isolation: isolate;
-  box-shadow: none;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .ide.glass-window .activity-rail .rail-btn:hover:not(:disabled),
 .ide.glass-window .activity-rail .codex-list-row:hover:not(:disabled),
 .ide.glass-window .activity-rail .codex-project-row:hover:not(:disabled) {
   transform: none !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02)),
+    color-mix(in srgb, var(--hover) 88%, transparent) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.13),
     inset 0 0 0 1px rgba(255, 255, 255, 0.045) !important;
@@ -59,4 +71,37 @@
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 0 0 1px rgba(255, 255, 255, 0.055) !important;
+}
+
+/* Remove the transparent seam between the rail and editor shell. */
+.ide.glass-window .workspace {
+  gap: 0 !important;
+}
+
+.ide.glass-window .workspace-body,
+.ide.glass-window .workspace-panels {
+  min-width: 0;
+}
+
+.ide.glass-window .editor-area {
+  margin: 8px 8px 8px 0 !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-left: 0 !important;
+  contain: paint;
+  isolation: isolate;
+}
+
+.ide.glass-window .workspace-panels.sidebar-right .editor-area,
+.ide.glass-window .workspace.sidebar-right .editor-area {
+  margin: 8px 0 8px 8px !important;
+  border-top-left-radius: var(--liquid-radius-xl, 18px) !important;
+  border-bottom-left-radius: var(--liquid-radius-xl, 18px) !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-right: 0 !important;
+}
+
+.ide.glass-window .tab-bar {
+  overflow: hidden;
 }
