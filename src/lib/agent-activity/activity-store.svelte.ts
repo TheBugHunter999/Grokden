@@ -174,10 +174,17 @@ export function markSessionDone(sessionId: string): void {
 }
 
 export function removeActivitySession(sessionId: string): void {
-  if (!sessions.has(sessionId)) return;
+  const session = sessions.get(sessionId);
+  if (!session) return;
+
   const next = new Map(sessions);
   next.delete(sessionId);
   sessions = next;
+
+  if (session.terminalId != null) {
+    removeTerminalCompact(session.terminalId);
+  }
+
   if (activeSessionId === sessionId) {
     const remaining = getActivitySessions();
     activeSessionId = remaining[0]?.id ?? null;
@@ -204,6 +211,7 @@ export function pruneStaleSessions(): void {
   let changed = false;
   for (const [id, session] of next) {
     if (!isSessionLive(session) && session.status !== "tool_running" && session.status !== "awaiting_approval") {
+      if (session.terminalId != null) removeTerminalCompact(session.terminalId);
       next.delete(id);
       changed = true;
     }
