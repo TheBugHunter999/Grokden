@@ -151,6 +151,11 @@
     isGrokCliAvailable,
   } from "$lib/grok-cli";
   import { APP_DISPLAY_NAME, migrateLegacyBranding, syncAppBranding } from "$lib/branding";
+  import WelcomeView, {
+    type RecentWorkspace,
+    type WelcomeThemeId,
+  } from "$lib/WelcomeView.svelte";
+  import Canvas from "$lib/Canvas.svelte";
 
   migrateLegacyBranding();
 
@@ -225,7 +230,8 @@
   let sidebarCollapsed = $state(false);
   let terminalOpen = $state(settings.showTerminalOnStart);
   let secondarySidebarOpen = $state(initialSecondarySidebarOpen(settings));
-  let view = $state<"editor" | "settings" | "agents">("editor");
+  let view = $state<"editor" | "settings" | "agents" | "canvas">("editor");
+  let canvasOpen = $state(false);
   let parallelAgents = $state<ParallelAgent[]>([]);
   let missionGoals = $state<MissionGoal[]>([]);
   let agentSwarmOpen = $state(false);
@@ -766,9 +772,13 @@
   }
 
   /** Pick the next main view after closing a settings or swarm panel tab. */
-  function resolveViewAfterPanelClose(closed: "agents" | "settings"): "editor" | "settings" | "agents" {
+  function resolveViewAfterPanelClose(closed: "agents" | "settings" | "canvas"): "editor" | "settings" | "agents" | "canvas" {
     if (closed === "agents" && settingsOpen) return "settings";
     if (closed === "settings" && agentSwarmOpen) return "agents";
+    if (closed === "canvas" && agentSwarmOpen) return "agents";
+    if (closed === "canvas" && settingsOpen) return "settings";
+    if (closed === "agents" && canvasOpen) return "canvas";
+    if (closed === "settings" && canvasOpen) return "canvas";
     return "editor";
   }
 
@@ -1302,6 +1312,88 @@
     secondaryPanelTab = "activity";
   }
 
+  function openCanvasView() {
+    canvasOpen = true;
+    view = "canvas";
+    blurActiveTerminal();
+    setUserSidebarOpen(false);
+  }
+
+  function closeCanvasView() {
+    canvasOpen = false;
+    if (view === "canvas") view = resolveViewAfterPanelClose("canvas");
+  }
+
+  function handleWelcomeCommand(command: string) {
+    const trimmed = command.trim().toLowerCase();
+    if (!trimmed) return;
+    if (trimmed === "git clone" || trimmed.startsWith("clone")) {
+      openTerminalPanel();
+      grokInjectToken += 1;
+      return;
+    }
+    if (trimmed.startsWith("open ")) {
+      const path = command.trim().slice(5).trim();
+      if (path) void resolveFolderOpen(path);
+      return;
+    }
+    if (trimmed.includes("terminal")) {
+      openTerminalPanel();
+      return;
+    }
+    if (trimmed.includes("agent")) {
+      openAgentSwarm();
+      return;
+    }
+    if (trimmed.includes("folder")) {
+      void openFolder();
+      return;
+    }
+    if (trimmed.includes("canvas")) {
+      openCanvasView();
+      return;
+    }
+    launchGrokCli();
+  }
+
+  function handleWelcomeTheme(themeId: WelcomeThemeId) {
+    if (themeId === "default-dark") {
+      settings.theme = "codex";
+      settings.windowTransparency = 100;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
+      }
+      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
+    } else if (themeId === "glass") {
+      settings.windowTransparency = 72;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
+      }
+      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
+    } else if (themeId === "high-contrast") {
+      settings.theme = "midnight";
+      settings.windowTransparency = 100;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "0");
+      }
+      document.querySelector(".ide")?.classList.remove("grokden-premium-theme");
+    }
+  }
+
+  function loadRecentWorkspaces(): RecentWorkspace[] {
+    if (typeof localStorage === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("Grokden.recentWorkspaces");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as RecentWorkspace[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  let recentWorkspaces = $state<RecentWorkspace[]>(loadRecentWorkspaces());
+
   function closeAgentSwarm() {
     agentSwarmOpen = false;
     if (view === "agents") view = resolveViewAfterPanelClose("agents");
@@ -1742,6 +1834,10 @@
           <span class="codex-nav-text">Parallel Agents</span>
           {#if runningParallelAgentCount > 0}<span class="rail-badge inline">{runningParallelAgentCount}</span>{/if}
         </button>
+        <button type="button" class="rail-btn codex-nav-item" class:active={canvasOpen} aria-label="Canvas" title="Canvas" onclick={openCanvasView}>
+          <svg class="rail-svg" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.1"/><circle cx="5" cy="5" r="0.75" fill="currentColor"/><circle cx="11" cy="5" r="0.75" fill="currentColor"/><circle cx="5" cy="11" r="0.75" fill="currentColor"/><circle cx="11" cy="11" r="0.75" fill="currentColor"/></svg>
+          <span class="codex-nav-text">Canvas</span>
+        </button>
       </div>
 
       <div class="codex-section">
@@ -1872,6 +1968,13 @@
 
     <main class="editor-area">
       <div class="tab-bar dark-scrollbar">
+        {#if canvasOpen}
+          <button type="button" class="tab" class:active={view === "canvas"} onclick={() => (view = "canvas")}>
+            <span class="tab-badge swarm-badge">CV</span>
+            <span class="tab-name">Canvas</span>
+            <span class="tab-close" role="button" tabindex="0" aria-label="Close Canvas" onclick={(e) => { e.stopPropagation(); closeCanvasView(); }} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeCanvasView(); } }}></span>
+          </button>
+        {/if}
         {#if agentSwarmOpen}
           <button type="button" class="tab" class:active={view === "agents"} onclick={() => (view = "agents")}>
             <span class="tab-badge swarm-badge">PA</span>
@@ -1886,7 +1989,7 @@
             <span class="tab-close" role="button" tabindex="0" aria-label="Close Settings" onclick={(e) => closeSettings(e)} onkeydown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); closeSettings(); } }}></span>
           </button>
         {/if}
-        {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen}
+        {#if tabs.length === 0 && !settingsOpen && !agentSwarmOpen && !canvasOpen}
           <span class="tab active muted">Welcome</span>
         {:else}
           {#each tabs as tab (tab.path)}
@@ -1924,6 +2027,14 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
           <Settings bind:settings />
+        </div>
+      {:else if view === "canvas"}
+        <div
+          class="view-pane canvas-view-pane"
+          in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+          out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
+        >
+          <Canvas />
         </div>
       {:else if view === "agents"}
         <div
@@ -2026,45 +2137,15 @@
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
         <div class="editor-placeholder">
-          <div class="welcome-center">
-            <h1 class="welcome-title">What should we build in Grokden?</h1>
-            <div class="welcome-composer">
-              <div class="welcome-input-line">Launch a terminal, open a folder, or start agents</div>
-              <div class="welcome-composer-actions">
-                <button type="button" class="composer-icon-btn" aria-label="Open folder" title="Open folder" onclick={openFolder}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h4l1.1 1.2H14v6.3H2V5z" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
-                </button>
-                <button type="button" class="composer-chip" onclick={openTerminalPanel}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M5 7l2 1.5L5 10M8.5 10.5h3" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  Terminal
-                </button>
-                <button type="button" class="composer-chip" onclick={openAgentSwarm}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="2" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/><rect x="9" y="9" width="5" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
-                  Parallel Agents
-                </button>
-                <button type="button" class="composer-send" aria-label="Launch Grok CLI" title="Launch Grok CLI" onclick={launchGrokCli}>
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9M4.5 6.5 8 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-              </div>
-            </div>
-            <div class="welcome-actions">
-              <button type="button" class="welcome-card" onclick={openFolder}>
-                <span class="welcome-card-icon">01</span>
-                <span class="welcome-card-title">Open Folder</span>
-                <span class="welcome-card-sub">Browse and edit local files</span>
-              </button>
-              <button type="button" class="welcome-card" onclick={openTerminalPanel}>
-                <span class="welcome-card-icon">02</span>
-                <span class="welcome-card-title">Terminal</span>
-                <span class="welcome-card-sub">Run shell commands in the workspace</span>
-              </button>
-              <button type="button" class="welcome-card" onclick={openAgentSwarm}>
-                <span class="welcome-card-icon">03</span>
-                <span class="welcome-card-title">Parallel Agents</span>
-                <span class="welcome-card-sub">Launch multiple Grok CLI panes</span>
-              </button>
-            </div>
-          </div>
+          <WelcomeView
+            onOpenFolder={openFolder}
+            onOpenTerminal={openTerminalPanel}
+            onLaunchAgents={openAgentSwarm}
+            onOpenCanvas={openCanvasView}
+            onCommandSubmit={handleWelcomeCommand}
+            onApplyTheme={handleWelcomeTheme}
+            {recentWorkspaces}
+          />
           {#if grokCliAvailable === false}
             <div class="welcome-grok-alert" role="alert">
               <p class="welcome-grok-title">Grok CLI not found on PATH</p>
@@ -2250,7 +2331,7 @@ This is a very long debug log line that demonstrates whether the debug console w
 
   <div class="statusbar" class:zen-hidden={settings.zenMode} bind:this={statusBarEl}>
     <div class="status-left">
-      <span class="status-chip accent">{view === "agents" ? `Agents: ${runningParallelAgentCount}` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
+      <span class="status-chip accent">{view === "canvas" ? "Canvas" : view === "agents" ? `Agents: ${runningParallelAgentCount}` : view === "settings" ? "Settings" : activeTab ? "Editing" : "Ready"}</span>
       {#if folderPath}<span class="status-chip" title={folderPath}>{folderName}</span>{/if}
       {#if folderRestricted}<span class="status-chip warn" title="Trust the folder to enable terminals and agents">Restricted</span>{/if}
       {#if dirtyCount > 0}<span class="status-chip warn">{dirtyCount} unsaved</span>{/if}
@@ -3210,6 +3291,18 @@ This is a very long debug log line that demonstrates whether the debug console w
     min-width: 0;
     height: 100%;
     overflow: hidden;
+  }
+
+  .canvas-view-pane {
+    position: relative;
+    padding: 0;
+    background: var(--grok-bg, var(--bg));
+  }
+
+  .canvas-view-pane :global(.grok-canvas) {
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
   }
 
   .editor-content > .view-pane,

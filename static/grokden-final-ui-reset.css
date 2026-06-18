@@ -1,30 +1,83 @@
 /* Final visual reset for the rough UI patches. Loaded last. */
 
+/* ── Box-sizing normalize ───────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── Token-colored scrollbars ─────────────────────────────────────────────── */
+.ide,
+.ide * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--grok-scrollbar, var(--scrollbar, rgba(255, 255, 255, 0.18)))
+    transparent;
+}
+
+.ide *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.ide *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ide *::-webkit-scrollbar-thumb {
+  background: var(--grok-scrollbar, var(--scrollbar, rgba(255, 255, 255, 0.18)));
+  border-radius: var(--grok-radius-full, 9999px);
+}
+
+.ide *::-webkit-scrollbar-thumb:hover {
+  background: var(--grok-scrollbar-hover, var(--scrollbar-hover, rgba(255, 255, 255, 0.32)));
+}
+
+/* ── Focus-visible ring system ────────────────────────────────────────────── */
+.ide :focus {
+  outline: none;
+}
+
+.ide :focus-visible {
+  outline: var(--grok-focus-width, 2px) solid var(--grok-focus-ring, var(--grok-purple, #8b5cf6));
+  outline-offset: var(--grok-focus-offset, 2px);
+}
+
+.ide button:focus-visible,
+.ide [role="button"]:focus-visible,
+.ide a:focus-visible,
+.ide input:focus-visible,
+.ide select:focus-visible,
+.ide textarea:focus-visible,
+.ide [tabindex]:not([tabindex="-1"]):focus-visible {
+  box-shadow: 0 0 0 var(--grok-focus-width, 2px) var(--grok-purple-soft, rgba(139, 92, 246, 0.18));
+}
+
 /* Clean, professional editor tabs. */
 .ide .tab-bar,
 .ide.glass-window .tab-bar {
-  height: 33px !important;
-  padding: 3px 8px 0 !important;
-  gap: 2px !important;
+  height: var(--grok-tabbar-h, 33px) !important;
+  padding: var(--grok-space-3, 6px) var(--grok-space-4, 8px) 0 !important;
+  gap: var(--grok-space-2, 2px) !important;
   align-items: flex-end !important;
-  background: #181c21 !important;
-  border-bottom: 1px solid #2a3038 !important;
+  background: var(--grok-surface, var(--panel, #101015)) !important;
+  border-bottom: 1px solid var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
   box-shadow: none !important;
 }
 
 .ide .tab,
 .ide.glass-window .tab {
   position: relative !important;
-  height: 30px !important;
+  height: var(--grok-tab-h, 30px) !important;
   min-width: 82px !important;
   max-width: 210px !important;
   padding: 0 11px !important;
   margin: 0 !important;
   border: 1px solid transparent !important;
   border-bottom: 0 !important;
-  border-radius: 7px 7px 0 0 !important;
+  border-radius: var(--grok-radius-lg, 8px) var(--grok-radius-lg, 8px) 0 0 !important;
   background: transparent !important;
-  color: #a9b2bf !important;
+  color: var(--grok-text-muted, var(--text-mute, #6b6b78)) !important;
   box-shadow: none !important;
   transform: none !important;
   overflow: hidden !important;
@@ -32,16 +85,16 @@
 
 .ide .tab:hover,
 .ide.glass-window .tab:hover {
-  background: #20262d !important;
-  color: #dce3ec !important;
-  border-color: #2d3540 !important;
+  background: var(--grok-hover, var(--hover, rgba(255, 255, 255, 0.055))) !important;
+  color: var(--grok-text-secondary, var(--text-dim, #a8a8b3)) !important;
+  border-color: var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
 }
 
 .ide .tab.active,
 .ide.glass-window .tab.active {
-  background: #1f252c !important;
-  color: #f3f7fb !important;
-  border-color: #33404a !important;
+  background: var(--grok-surface-2, var(--panel-solid, #16161c)) !important;
+  color: var(--grok-text, var(--text, #ececf1)) !important;
+  border-color: var(--grok-border-strong, var(--border-strong, rgba(255, 255, 255, 0.14))) !important;
   box-shadow: none !important;
 }
 
@@ -53,8 +106,8 @@
   right: 10px !important;
   bottom: 0 !important;
   height: 2px !important;
-  background: #5cc9c7 !important;
-  border-radius: 999px !important;
+  background: var(--grok-cyan-muted, var(--grok-cyan, #22d3ee)) !important;
+  border-radius: var(--grok-radius-full, 9999px) !important;
   opacity: 1 !important;
 }
 
@@ -67,21 +120,21 @@
 
 .ide .tab-name,
 .ide.glass-window .tab-name {
-  font-weight: 500 !important;
+  font-weight: var(--grok-font-weight-medium, 500) !important;
   text-shadow: none !important;
 }
 
 .ide .tab-close,
 .ide.glass-window .tab-close {
   opacity: 0.55 !important;
-  color: #a7b0bd !important;
+  color: var(--grok-text-muted, var(--text-mute, #6b6b78)) !important;
 }
 
 .ide .tab-close:hover,
 .ide.glass-window .tab-close:hover {
   opacity: 1 !important;
-  color: #f3f7fb !important;
-  background: rgba(255,255,255,0.08) !important;
+  color: var(--grok-text, var(--text, #ececf1)) !important;
+  background: var(--grok-hover, var(--hover, rgba(255, 255, 255, 0.055))) !important;
 }
 
 /* Solid side panels. This removes the ghost overlay/layer look when switching Files and Source Control. */
@@ -94,7 +147,7 @@
 .ide .virtual-viewport,
 .ide .virtual-window,
 .ide .virtual-spacer {
-  background: #11161d !important;
+  background: var(--grok-surface, var(--panel, #101015)) !important;
   background-image: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -103,7 +156,7 @@
 
 .ide .sidebar,
 .ide.glass-window .sidebar {
-  border-right: 1px solid #27313a !important;
+  border-right: 1px solid var(--grok-border, var(--border, rgba(255, 255, 255, 0.08))) !important;
   overflow: hidden !important;
 }
 
@@ -124,10 +177,10 @@
 .ide .terminal,
 .ide.glass-window .terminal {
   transition:
-    max-height 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    height 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 150ms ease,
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    max-height var(--grok-duration-normal, 220ms) var(--grok-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+    height var(--grok-duration-normal, 220ms) var(--grok-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)),
+    opacity var(--grok-duration-fast, 150ms) var(--grok-ease-default, ease),
+    transform var(--grok-duration-normal, 220ms) var(--grok-ease-spring, cubic-bezier(0.16, 1, 0.3, 1)) !important;
   will-change: height, max-height, opacity, transform;
 }
 

@@ -1,0 +1,493 @@
+/* Grokden Canvas mode — uses --grok-* tokens with theme fallbacks */
+
+.grok-canvas {
+  --grok-bg: var(--bg, #000000);
+  --grok-surface: var(--panel, #0d0d0d);
+  --grok-surface-2: var(--grokden-panel-2, var(--surface-raised, #141414));
+  --grok-border: var(--border-muted, rgba(255, 255, 255, 0.08));
+  --grok-border-strong: var(--border, rgba(255, 255, 255, 0.12));
+  --grok-text: var(--text, #f5f5f5);
+  --grok-muted: var(--text-mute, #858585);
+  --grok-accent: var(--accent, #ffffff);
+  --grok-accent-soft: var(--accent-soft, rgba(255, 255, 255, 0.13));
+  --grok-hover: var(--hover, rgba(255, 255, 255, 0.065));
+  --grok-selection: var(--selection, rgba(255, 255, 255, 0.18));
+  --grok-danger: var(--danger, #ff6b6b);
+  --grok-radius-sm: 8px;
+  --grok-radius-md: 11px;
+  --grok-radius-lg: 14px;
+  --grok-radius-pill: 9999px;
+  --grok-shadow-md: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --grok-shadow-toolbar: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --grok-dot-color: rgba(255, 255, 255, 0.05);
+  --grok-dot-spacing: 24px;
+  --grok-vignette: radial-gradient(
+    ellipse 85% 75% at 50% 50%,
+    transparent 35%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  --grok-transition-zoom: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+  --grok-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--grok-bg);
+  color: var(--grok-text);
+  font-family: var(--grok-font);
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  outline: none;
+}
+
+.grok-canvas:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--grok-accent) 28%, transparent);
+}
+
+/* ── Infinite dotted plane ─────────────────────────────────────────────────── */
+
+.grok-canvas__grid {
+  position: absolute;
+  inset: -4000px;
+  background-color: var(--grok-bg);
+  background-image: radial-gradient(circle, var(--grok-dot-color) 1px, transparent 1px);
+  background-size: var(--grok-dot-spacing) var(--grok-dot-spacing);
+  pointer-events: none;
+}
+
+.grok-canvas__vignette {
+  position: absolute;
+  inset: 0;
+  background: var(--grok-vignette);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.grok-canvas__world {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.grok-canvas__world--animate {
+  transition: var(--grok-transition-zoom);
+}
+
+.grok-canvas__surface {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ── Connectors ────────────────────────────────────────────────────────────── */
+
+.grok-canvas__edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.grok-canvas__edge {
+  fill: none;
+  stroke: color-mix(in srgb, var(--grok-accent) 42%, transparent);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.grok-canvas__edge--preview {
+  stroke-dasharray: 6 4;
+  opacity: 0.55;
+}
+
+/* ── Nodes ─────────────────────────────────────────────────────────────────── */
+
+.grok-canvas__nodes {
+  position: absolute;
+  inset: 0;
+}
+
+.grok-canvas__node {
+  position: absolute;
+  width: 200px;
+  min-height: 96px;
+  padding: 12px 14px;
+  border-radius: var(--grok-radius-lg);
+  background: var(--grok-surface-2);
+  border: 1px solid var(--grok-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 18px rgba(0, 0, 0, 0.28);
+  cursor: grab;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.grok-canvas__node:hover {
+  border-color: var(--grok-border-strong);
+}
+
+.grok-canvas__node--selected {
+  border-color: color-mix(in srgb, var(--grok-accent) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px color-mix(in srgb, var(--grok-accent) 22%, transparent),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.grok-canvas__node--dragging {
+  cursor: grabbing;
+  z-index: 10;
+}
+
+.grok-canvas__node-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--grok-muted);
+}
+
+.grok-canvas__node-type-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.grok-canvas__node-type-dot--agent {
+  background: #7dd3fc;
+}
+
+.grok-canvas__node-type-dot--mission {
+  background: #fbbf24;
+}
+
+.grok-canvas__node-type-dot--file {
+  background: #86efac;
+}
+
+.grok-canvas__node-type-dot--note {
+  background: #c4b5fd;
+}
+
+.grok-canvas__node-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--grok-text);
+  line-height: 1.3;
+}
+
+.grok-canvas__node-sub {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--grok-muted);
+  line-height: 1.45;
+}
+
+/* ── Marquee selection ─────────────────────────────────────────────────────── */
+
+.grok-canvas__marquee {
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--grok-accent) 55%, transparent);
+  background: var(--grok-selection);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+
+.grok-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 3;
+  pointer-events: none;
+  padding: 24px;
+  text-align: center;
+}
+
+.grok-canvas__empty-prompt {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--grok-muted) 88%, transparent);
+  letter-spacing: -0.01em;
+}
+
+.grok-canvas__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.grok-canvas__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid var(--grok-border-strong);
+  background: color-mix(in srgb, var(--grok-surface-2) 92%, transparent);
+  color: var(--grok-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.grok-canvas__pill:hover {
+  background: var(--grok-hover);
+  border-color: color-mix(in srgb, var(--grok-accent) 35%, transparent);
+}
+
+.grok-canvas__pill:active {
+  transform: scale(0.98);
+}
+
+.grok-canvas__chip {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid var(--grok-border);
+  background: transparent;
+  color: var(--grok-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.grok-canvas__chip:hover {
+  color: var(--grok-text);
+  background: var(--grok-hover);
+  border-color: var(--grok-border-strong);
+}
+
+/* ── Floating toolbar (bottom center) ──────────────────────────────────────── */
+
+.grok-canvas__toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: var(--grok-shadow-toolbar);
+}
+
+.grok-canvas__tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--grok-radius-pill);
+  background: transparent;
+  color: var(--grok-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.grok-canvas__tool-btn:hover {
+  color: var(--grok-text);
+  background: var(--grok-hover);
+}
+
+.grok-canvas__tool-btn--active {
+  color: var(--grok-text);
+  background: var(--grok-accent-soft);
+  border-color: color-mix(in srgb, var(--grok-accent) 22%, transparent);
+}
+
+.grok-canvas__tool-divider {
+  width: 1px;
+  height: 20px;
+  margin: 0 2px;
+  background: var(--grok-border);
+}
+
+.grok-canvas__tool-kbd {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--grok-muted) 80%, transparent);
+}
+
+/* ── Zoom control (bottom left) ──────────────────────────────────────────── */
+
+.grok-canvas__zoom {
+  position: absolute;
+  left: 16px;
+  bottom: 18px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: var(--grok-shadow-md);
+}
+
+.grok-canvas__zoom-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--grok-radius-pill);
+  background: transparent;
+  color: var(--grok-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.grok-canvas__zoom-btn:hover {
+  color: var(--grok-text);
+  background: var(--grok-hover);
+}
+
+.grok-canvas__zoom-label {
+  min-width: 52px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--grok-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Minimap toggle (top right) ────────────────────────────────────────────── */
+
+.grok-canvas__minimap-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--grok-radius-pill);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  color: var(--grok-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.grok-canvas__minimap-toggle:hover {
+  color: var(--grok-text);
+  background: var(--grok-hover);
+}
+
+.grok-canvas__minimap-toggle--on {
+  color: var(--grok-text);
+  border-color: color-mix(in srgb, var(--grok-accent) 28%, transparent);
+  background: var(--grok-accent-soft);
+}
+
+.grok-canvas__minimap-stub {
+  position: absolute;
+  top: 54px;
+  right: 14px;
+  z-index: 5;
+  width: 148px;
+  height: 96px;
+  border-radius: var(--grok-radius-md);
+  border: 1px solid var(--grok-border);
+  background: color-mix(in srgb, var(--grok-surface-2) 90%, transparent);
+  box-shadow: var(--grok-shadow-md);
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+.grok-canvas__minimap-stub::after {
+  content: "Minimap";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--grok-muted);
+}
+
+/* ── Cursor modes ──────────────────────────────────────────────────────────── */
+
+.grok-canvas--tool-select {
+  cursor: default;
+}
+
+.grok-canvas--tool-pan,
+.grok-canvas--panning {
+  cursor: grab;
+}
+
+.grok-canvas--tool-pan.grok-canvas--panning,
+.grok-canvas--panning {
+  cursor: grabbing;
+}
+
+.grok-canvas--tool-connect {
+  cursor: crosshair;
+}

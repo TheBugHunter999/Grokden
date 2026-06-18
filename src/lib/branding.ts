@@ -1,4 +1,6 @@
 export const APP_DISPLAY_NAME = "Grokden";
+export const WELCOME_TAGLINE = "Your AI workspace. Build, orchestrate, ship.";
+export const RECENT_WORKSPACES_STORAGE_KEY = "Grokden.recentWorkspaces";
 
 const STORAGE_KEY_MIGRATIONS: Array<{ legacy: string; current: string }> = [
   { legacy: "AetherForge.settings", current: "Grokden.settings" },
