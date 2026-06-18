@@ -3,9 +3,14 @@ import {
   bindSessionTerminal,
   createActivitySession,
   pushActivityStep,
+  removeSessionsByTerminalId,
   touchActivitySession,
 } from "$lib/agent-activity/activity-store";
-import { registerTerminalTap, type TerminalId } from "$lib/terminal-bridge";
+import {
+  registerTerminalCloseHandler,
+  registerTerminalTap,
+  type TerminalId,
+} from "$lib/terminal-bridge";
 
 const parsers = new Map<TerminalId, { sessionId: string; parser: GrokTuiParser }>();
 
@@ -18,9 +23,19 @@ type TapState = {
   firstChunkAt: number;
 };
 
-const tapStates = new Map<TerminalId, TapState>();
+type DetachOptions = {
+  flush?: boolean;
+};
 
-function flushTap(sessionId: string, terminalId: TerminalId) {
+const tapStates = new Map<TerminalId, TapState>();
+const tapUnsubscribers = new Map<TerminalId, () => void>();
+
+registerTerminalCloseHandler((terminalId) => {
+  detachParser(terminalId, { flush: false });
+  removeSessionsByTerminalId(terminalId);
+});
+
+function flushTap(sessionId: string, terminalId: TerminalId, includePartial = false) {
   const state = tapStates.get(terminalId);
   if (!state || !state.pending) return;
 
@@ -35,7 +50,11 @@ function flushTap(sessionId: string, terminalId: TerminalId) {
   state.pending = "";
   state.firstChunkAt = 0;
 
-  const events = [...entry.parser.push(chunk), ...entry.parser.flush()];
+  const events = includePartial
+    ? [...entry.parser.push(chunk), ...entry.parser.flush()]
+    : entry.parser.push(chunk);
+  if (events.length === 0) return;
+
   touchActivitySession(sessionId);
   for (const event of events) {
     if (event.type === "step_start") {
@@ -62,13 +81,13 @@ function scheduleTapFlush(sessionId: string, terminalId: TerminalId) {
 
   const elapsed = Date.now() - state.firstChunkAt;
   if (elapsed >= MAX_WAIT_MS) {
-    flushTap(sessionId, terminalId);
+    flushTap(sessionId, terminalId, false);
     return;
   }
 
   state.timer = setTimeout(() => {
     state!.timer = undefined;
-    flushTap(sessionId, terminalId);
+    flushTap(sessionId, terminalId, false);
   }, FLUSH_MS);
 }
 
@@ -81,7 +100,7 @@ export function startActivitySession(label: string, terminalId: number | null = 
 }
 
 export function attachParser(sessionId: string, terminalId: TerminalId): () => void {
-  detachParser(terminalId);
+  detachParser(terminalId, { flush: false });
 
   const parser = new GrokTuiParser();
   parsers.set(terminalId, { sessionId, parser });
@@ -91,7 +110,7 @@ export function attachParser(sessionId: string, terminalId: TerminalId): () => v
   if (prev?.timer) clearTimeout(prev.timer);
   tapStates.set(terminalId, { pending: "", timer: undefined, firstChunkAt: 0 });
 
-  return registerTerminalTap(terminalId, (chunk) => {
+  const unsubscribe = registerTerminalTap(terminalId, (chunk) => {
     const entry = parsers.get(terminalId);
     if (!entry || entry.sessionId !== sessionId) return;
 
@@ -103,11 +122,28 @@ export function attachParser(sessionId: string, terminalId: TerminalId): () => v
     state.pending += chunk;
     scheduleTapFlush(sessionId, terminalId);
   });
+
+  tapUnsubscribers.set(terminalId, unsubscribe);
+
+  return () => {
+    unsubscribe();
+    if (tapUnsubscribers.get(terminalId) === unsubscribe) {
+      tapUnsubscribers.delete(terminalId);
+    }
+    detachParser(terminalId, { flush: false });
+  };
 }
 
-export function detachParser(terminalId: TerminalId): void {
+export function detachParser(terminalId: TerminalId, options: DetachOptions = {}): void {
+  const unsubscribe = tapUnsubscribers.get(terminalId);
+  if (unsubscribe) {
+    unsubscribe();
+    tapUnsubscribers.delete(terminalId);
+  }
+
   const entry = parsers.get(terminalId);
-  if (entry) flushTap(entry.sessionId, terminalId);
+  if (entry && options.flush) flushTap(entry.sessionId, terminalId, true);
+
   const state = tapStates.get(terminalId);
   if (state?.timer) clearTimeout(state.timer);
   tapStates.delete(terminalId);
