@@ -1,13 +1,8 @@
-import {
-  contrastRatio,
-  meetsWcagAA,
-  oklchToHex,
-  pickOnColor,
-  rgbaFromRgb,
-  type Oklch,
-} from "./color-utils";
+/** Canonical Grokden theme palettes.
+ * GROKDEN-FIX: Pass 3 removed the old Premium Grok class-overlay theme.
+ * Every selectable theme now lives here and flows through buildThemeStyle.
+ */
 
-/** Per-theme Liquid Glass tuning — consumed by buildGlassThemeVars (Phase B/C). */
 export type ThemeGlassTuning = {
   tintHue: number;
   refraction: number;
@@ -82,402 +77,345 @@ export type ThemePalette = {
   isLight?: boolean;
 };
 
-type ThemeSpec = {
-  id: string;
-  label: string;
-  isLight: boolean;
-  neutralHue: number;
-  neutralChroma: number;
-  accentHue: number;
-  accentChroma: number;
-  surfaces: {
-    bg: number;
-    panel: number;
-    panelSolid: number;
-    editorBg: number;
-    chrome: number;
-    raised: number;
-    inset: number;
-  };
-  text: { primary: number; dim: number; mute: number };
-  accent: { l: number; c: number; h: number };
-  semantic: {
-    success: Oklch;
-    warning: Oklch;
-    danger: Oklch;
-    info: Oklch;
-  };
-  glass: ThemeGlassTuning;
-  terminal: TerminalPalette;
+function withWarn(theme: Omit<ThemePalette, "warn">): ThemePalette {
+  return { ...theme, warn: theme.warning };
+}
+
+const darkTerminal: TerminalPalette = {
+  black: "#121217",
+  red: "#f07178",
+  green: "#4ade80",
+  yellow: "#facc15",
+  blue: "#60a5fa",
+  magenta: "#c084fc",
+  cyan: "#22d3ee",
+  white: "#e5e7eb",
+  brightBlack: "#6b7280",
+  brightRed: "#fca5a5",
+  brightGreen: "#86efac",
+  brightYellow: "#fde047",
+  brightBlue: "#93c5fd",
+  brightMagenta: "#d8b4fe",
+  brightCyan: "#67e8f9",
+  brightWhite: "#ffffff",
 };
 
-function surface(hue: number, chroma: number, l: number): string {
-  return oklchToHex(l, chroma, hue);
-}
-
-function ensureContrast(fgL: number, bgHex: string, hue: number, chroma: number, isLight: boolean): string {
-  let l = fgL;
-  const step = isLight ? -0.02 : 0.02;
-  const limit = isLight ? 0.12 : 0.98;
-  for (let i = 0; i < 24; i++) {
-    const hex = oklchToHex(l, chroma, hue);
-    const ratio = contrastRatio(hex, bgHex);
-    if (meetsWcagAA(ratio, false)) return hex;
-    l += step;
-    if (isLight ? l < limit : l > limit) break;
-  }
-  return oklchToHex(fgL, chroma, hue);
-}
-
-function ensureSecondaryContrast(fgL: number, bgHex: string, hue: number, chroma: number, isLight: boolean): string {
-  let l = fgL;
-  const step = isLight ? -0.015 : 0.015;
-  const limit = isLight ? 0.2 : 0.92;
-  for (let i = 0; i < 20; i++) {
-    const hex = oklchToHex(l, chroma, hue);
-    const ratio = contrastRatio(hex, bgHex);
-    if (meetsWcagAA(ratio, true)) return hex;
-    l += step;
-    if (isLight ? l < limit : l > limit) break;
-  }
-  return oklchToHex(fgL, chroma, hue);
-}
-
-function buildFromSpec(spec: ThemeSpec): ThemePalette {
-  const { neutralHue, neutralChroma, isLight } = spec;
-  const fgHue = isLight ? 250 : neutralHue;
-  const fgChroma = isLight ? 0.03 : Math.min(neutralChroma, 0.02);
-
-  const bg = surface(neutralHue, neutralChroma, spec.surfaces.bg);
-  const panel = surface(neutralHue, neutralChroma + 0.008, spec.surfaces.panel);
-  const panelSolid = surface(neutralHue, neutralChroma + 0.01, spec.surfaces.panelSolid);
-  const editorBg = surface(neutralHue, neutralChroma, spec.surfaces.editorBg);
-  const chrome = surface(neutralHue, neutralChroma + 0.012, spec.surfaces.chrome);
-  const surfaceRaised = surface(neutralHue, neutralChroma + 0.015, spec.surfaces.raised);
-  const surfaceInset = surface(neutralHue, neutralChroma, spec.surfaces.inset);
-
-  const text = ensureContrast(spec.text.primary, bg, fgHue, fgChroma, isLight);
-  const textDim = ensureSecondaryContrast(spec.text.dim, bg, fgHue, fgChroma + 0.01, isLight);
-  const textMute = ensureSecondaryContrast(spec.text.mute, panel, fgHue, fgChroma + 0.02, isLight);
-
-  const accent = oklchToHex(spec.accent.l, spec.accent.c, spec.accent.h);
-  const accentHover = oklchToHex(
-    Math.min(0.78, spec.accent.l + (isLight ? -0.06 : 0.06)),
-    spec.accent.c,
-    spec.accent.h,
-  );
-  const accentMuted = oklchToHex(
-    isLight ? 0.62 : 0.72,
-    spec.accent.c * 0.55,
-    spec.accent.h,
-  );
-  const onAccent = pickOnColor(accent);
-
-  const lineBase = isLight ? "#0f172a" : "#f8fafc";
-  const borderAlpha = isLight ? 0.1 : 0.08;
-  const borderStrongAlpha = isLight ? 0.16 : 0.14;
-  const borderMutedAlpha = isLight ? 0.05 : 0.045;
-  const dividerAlpha = isLight ? 0.07 : 0.06;
-  const hoverAlpha = isLight ? 0.05 : 0.055;
-  const hoverStrongAlpha = isLight ? 0.08 : 0.1;
-  const activeAlpha = isLight ? 0.11 : 0.13;
-  const chipAlpha = isLight ? 0.05 : 0.065;
-  const scrollAlpha = isLight ? 0.2 : 0.24;
-  const scrollHoverAlpha = isLight ? 0.34 : 0.38;
-  const selectionAlpha = isLight ? 0.2 : 0.24;
-
-  const success = oklchToHex(spec.semantic.success.l, spec.semantic.success.c, spec.semantic.success.h);
-  const warning = oklchToHex(spec.semantic.warning.l, spec.semantic.warning.c, spec.semantic.warning.h);
-  const danger = oklchToHex(spec.semantic.danger.l, spec.semantic.danger.c, spec.semantic.danger.h);
-  const info = oklchToHex(spec.semantic.info.l, spec.semantic.info.c, spec.semantic.info.h);
-
-  return {
-    bg,
-    panel,
-    panelSolid,
-    editorBg,
-    chrome,
-    surfaceRaised,
-    surfaceOverlay: rgbaFromRgb(panelSolid, isLight ? 0.94 : 0.92),
-    surfaceInset,
-    border: rgbaFromRgb(lineBase, borderAlpha),
-    borderStrong: rgbaFromRgb(lineBase, borderStrongAlpha),
-    borderMuted: rgbaFromRgb(lineBase, borderMutedAlpha),
-    divider: rgbaFromRgb(lineBase, dividerAlpha),
-    text,
-    textDim,
-    textMute,
-    textDisabled: rgbaFromRgb(text, 0.38),
-    hover: rgbaFromRgb(lineBase, hoverAlpha),
-    hoverStrong: rgbaFromRgb(lineBase, hoverStrongAlpha),
-    active: rgbaFromRgb(lineBase, activeAlpha),
-    accent,
-    accentHover,
-    accentMuted,
-    onAccent,
-    success,
-    onSuccess: pickOnColor(success),
-    warning,
-    onWarning: pickOnColor(warning),
-    danger,
-    onDanger: pickOnColor(danger),
-    info,
-    onInfo: pickOnColor(info),
-    warn: warning,
-    chipBg: rgbaFromRgb(lineBase, chipAlpha),
-    scrollbar: rgbaFromRgb(lineBase, scrollAlpha),
-    scrollbarHover: rgbaFromRgb(lineBase, scrollHoverAlpha),
-    selection: rgbaFromRgb(accent, selectionAlpha),
-    terminal: spec.terminal,
-    glass: spec.glass,
-    isLight,
-  };
-}
-
-const THEME_SPECS: ThemeSpec[] = [
-  {
-    id: "codex",
-    label: "Codex",
-    isLight: false,
-    neutralHue: 68,
-    neutralChroma: 0.012,
-    accentHue: 42,
-    accentChroma: 0.12,
-    surfaces: { bg: 0.24, panel: 0.19, panelSolid: 0.175, editorBg: 0.225, chrome: 0.155, raised: 0.28, inset: 0.2 },
-    text: { primary: 0.94, dim: 0.78, mute: 0.62 },
-    accent: { l: 0.68, c: 0.12, h: 42 },
-    semantic: {
-      success: { l: 0.62, c: 0.14, h: 155 },
-      warning: { l: 0.74, c: 0.12, h: 72 },
-      danger: { l: 0.65, c: 0.18, h: 25 },
-      info: { l: 0.68, c: 0.1, h: 250 },
+export const THEMES: Record<string, ThemePalette> = {
+  "premium-grok": withWarn({
+    bg: "#060608",
+    surfaceInset: "#0b0b0f",
+    panel: "#101015",
+    panelSolid: "#16161c",
+    editorBg: "#060608",
+    chrome: "#0b0b0f",
+    surfaceRaised: "#1e1e26",
+    surfaceOverlay: "rgba(22,22,28,0.92)",
+    border: "rgba(255,255,255,0.07)",
+    borderStrong: "rgba(255,255,255,0.14)",
+    borderMuted: "rgba(255,255,255,0.045)",
+    divider: "rgba(255,255,255,0.06)",
+    text: "#ececf1",
+    textDim: "#a8a8b3",
+    textMute: "#868696",
+    textDisabled: "rgba(236,236,241,0.38)",
+    hover: "rgba(255,255,255,0.055)",
+    hoverStrong: "rgba(255,255,255,0.10)",
+    active: "rgba(139,92,246,0.16)",
+    accent: "#8b5cf6",
+    accentHover: "#7c3aed",
+    accentMuted: "#a78bfa",
+    onAccent: "#ffffff",
+    success: "#22c55e",
+    onSuccess: "#06140b",
+    warning: "#f59e0b",
+    onWarning: "#1a1000",
+    danger: "#f87171",
+    onDanger: "#160606",
+    info: "#22d3ee",
+    onInfo: "#031114",
+    chipBg: "rgba(255,255,255,0.065)",
+    scrollbar: "rgba(255,255,255,0.24)",
+    scrollbarHover: "rgba(255,255,255,0.38)",
+    selection: "rgba(139,92,246,0.24)",
+    terminal: {
+      ...darkTerminal,
+      black: "#08080c",
+      brightBlack: "#747484",
+      blue: "#7aa2ff",
+      magenta: "#a78bfa",
+      brightMagenta: "#c4b5fd",
+      cyan: "#5eead4",
+      brightCyan: "#99f6e4",
     },
     glass: {
-      tintHue: 68,
-      refraction: 1,
-      blurMultiplier: 1,
-      specularStrength: 1,
-      sheenStrength: 1,
-      contrastEdgeStrength: 1,
-      aberrationBias: 0.35,
+      tintHue: 270,
+      refraction: 1.16,
+      blurMultiplier: 1.12,
+      specularStrength: 1.18,
+      sheenStrength: 1.08,
+      contrastEdgeStrength: 1.12,
+      aberrationBias: 0.46,
       isLight: false,
     },
-    terminal: {
-      black: "#1e1d1b",
-      red: "#e87070",
-      green: "#4ecf8e",
-      yellow: "#d4a84f",
-      blue: "#6aa8f5",
-      magenta: "#c88fd4",
-      cyan: "#5ec4d4",
-      white: "#eceae6",
-      brightBlack: "#7a7772",
-      brightRed: "#f5a0a0",
-      brightGreen: "#7ee0ac",
-      brightYellow: "#e8c878",
-      brightBlue: "#94c0fa",
-      brightMagenta: "#ddb0e4",
-      brightCyan: "#88dce8",
-      brightWhite: "#faf9f7",
-    },
-  },
-  {
-    id: "obsidian",
-    label: "Obsidian",
     isLight: false,
-    neutralHue: 285,
-    neutralChroma: 0.018,
-    accentHue: 285,
-    accentChroma: 0.14,
-    surfaces: { bg: 0.12, panel: 0.145, panelSolid: 0.16, editorBg: 0.13, chrome: 0.11, raised: 0.2, inset: 0.1 },
-    text: { primary: 0.93, dim: 0.74, mute: 0.58 },
-    accent: { l: 0.62, c: 0.18, h: 285 },
-    semantic: {
-      success: { l: 0.64, c: 0.14, h: 160 },
-      warning: { l: 0.76, c: 0.14, h: 75 },
-      danger: { l: 0.63, c: 0.2, h: 27 },
-      info: { l: 0.62, c: 0.16, h: 255 },
+  }),
+
+  codex: withWarn({
+    bg: "#231e19",
+    surfaceInset: "#1b1713",
+    panel: "#1a120a",
+    panelSolid: "#181008",
+    editorBg: "#211c17",
+    chrome: "#130a03",
+    surfaceRaised: "#2c251f",
+    surfaceOverlay: "rgba(24,16,8,0.92)",
+    border: "rgba(248,250,252,0.08)",
+    borderStrong: "rgba(248,250,252,0.14)",
+    borderMuted: "rgba(248,250,252,0.045)",
+    divider: "rgba(248,250,252,0.06)",
+    text: "#f1efea",
+    textDim: "#d0c7bb",
+    textMute: "#b6aa9c",
+    textDisabled: "rgba(241,239,234,0.38)",
+    hover: "rgba(248,250,252,0.055)",
+    hoverStrong: "rgba(248,250,252,0.10)",
+    active: "rgba(248,250,252,0.13)",
+    accent: "#d67e5b",
+    accentHover: "#e49370",
+    accentMuted: "#d9a18b",
+    onAccent: "#241006",
+    success: "#46c88a",
+    onSuccess: "#06140b",
+    warning: "#d9b15b",
+    onWarning: "#1a1000",
+    danger: "#e87070",
+    onDanger: "#160606",
+    info: "#7aa2f7",
+    onInfo: "#071224",
+    chipBg: "rgba(248,250,252,0.065)",
+    scrollbar: "rgba(248,250,252,0.24)",
+    scrollbarHover: "rgba(248,250,252,0.38)",
+    selection: "rgba(214,126,91,0.24)",
+    terminal: {
+      black: "#1e1d1b", red: "#e87070", green: "#4ecf8e", yellow: "#d4a84f",
+      blue: "#6aa8f5", magenta: "#c88fd4", cyan: "#5ec4d4", white: "#eceae6",
+      brightBlack: "#7a7772", brightRed: "#f5a0a0", brightGreen: "#7ee0ac", brightYellow: "#e8c878",
+      brightBlue: "#94c0fa", brightMagenta: "#ddb0e4", brightCyan: "#88dce8", brightWhite: "#faf9f7",
     },
     glass: {
-      tintHue: 285,
-      refraction: 1.05,
-      blurMultiplier: 1.08,
-      specularStrength: 1.1,
-      sheenStrength: 0.95,
-      contrastEdgeStrength: 1.05,
-      aberrationBias: 0.4,
-      isLight: false,
+      tintHue: 68, refraction: 1, blurMultiplier: 1, specularStrength: 1,
+      sheenStrength: 1, contrastEdgeStrength: 1, aberrationBias: 0.35, isLight: false,
     },
-    terminal: {
-      black: "#12111a",
-      red: "#f07070",
-      green: "#3ecf9a",
-      yellow: "#e8b04a",
-      blue: "#5a9cf5",
-      magenta: "#b888e8",
-      cyan: "#58c8e8",
-      white: "#e8e6f0",
-      brightBlack: "#6e6c7e",
-      brightRed: "#f8a8a8",
-      brightGreen: "#6ee8b4",
-      brightYellow: "#f0d070",
-      brightBlue: "#88b8fa",
-      brightMagenta: "#d0a8f8",
-      brightCyan: "#88e0f8",
-      brightWhite: "#f8f6ff",
-    },
-  },
-  {
-    id: "aurora",
-    label: "Aurora",
     isLight: false,
-    neutralHue: 265,
-    neutralChroma: 0.025,
-    accentHue: 280,
-    accentChroma: 0.16,
-    surfaces: { bg: 0.155, panel: 0.175, panelSolid: 0.19, editorBg: 0.14, chrome: 0.13, raised: 0.24, inset: 0.12 },
-    text: { primary: 0.92, dim: 0.74, mute: 0.58 },
-    accent: { l: 0.64, c: 0.17, h: 280 },
-    semantic: {
-      success: { l: 0.72, c: 0.12, h: 165 },
-      warning: { l: 0.82, c: 0.13, h: 85 },
-      danger: { l: 0.68, c: 0.17, h: 22 },
-      info: { l: 0.7, c: 0.12, h: 245 },
+  }),
+
+  obsidian: withWarn({
+    bg: "#05050c",
+    surfaceInset: "#030309",
+    panel: "#090815",
+    panelSolid: "#0d0b1a",
+    editorBg: "#070711",
+    chrome: "#04030e",
+    surfaceRaised: "#171524",
+    surfaceOverlay: "rgba(13,11,26,0.92)",
+    border: "rgba(248,250,252,0.08)",
+    borderStrong: "rgba(248,250,252,0.14)",
+    borderMuted: "rgba(248,250,252,0.045)",
+    divider: "rgba(248,250,252,0.06)",
+    text: "#eeeef8",
+    textDim: "#c9c5db",
+    textMute: "#aaa4c0",
+    textDisabled: "rgba(238,238,248,0.38)",
+    hover: "rgba(248,250,252,0.055)",
+    hoverStrong: "rgba(248,250,252,0.10)",
+    active: "rgba(126,112,236,0.16)",
+    accent: "#7e70ec",
+    accentHover: "#9587ff",
+    accentMuted: "#b4a8f4",
+    onAccent: "#ffffff",
+    success: "#3ecf9a",
+    onSuccess: "#06140b",
+    warning: "#e8b04a",
+    onWarning: "#1a1000",
+    danger: "#f07070",
+    onDanger: "#160606",
+    info: "#5a9cf5",
+    onInfo: "#071224",
+    chipBg: "rgba(248,250,252,0.065)",
+    scrollbar: "rgba(248,250,252,0.24)",
+    scrollbarHover: "rgba(248,250,252,0.38)",
+    selection: "rgba(126,112,236,0.24)",
+    terminal: {
+      black: "#12111a", red: "#f07070", green: "#3ecf9a", yellow: "#e8b04a",
+      blue: "#5a9cf5", magenta: "#b888e8", cyan: "#58c8e8", white: "#e8e6f0",
+      brightBlack: "#6e6c7e", brightRed: "#f8a8a8", brightGreen: "#6ee8b4", brightYellow: "#f0d070",
+      brightBlue: "#88b8fa", brightMagenta: "#d0a8f8", brightCyan: "#88e0f8", brightWhite: "#f8f6ff",
     },
     glass: {
-      tintHue: 265,
-      refraction: 1.12,
-      blurMultiplier: 1.1,
-      specularStrength: 1.15,
-      sheenStrength: 1.05,
-      contrastEdgeStrength: 1,
-      aberrationBias: 0.5,
-      isLight: false,
+      tintHue: 285, refraction: 1.05, blurMultiplier: 1.08, specularStrength: 1.1,
+      sheenStrength: 0.95, contrastEdgeStrength: 1.05, aberrationBias: 0.4, isLight: false,
     },
+    isLight: false,
+  }),
+
+  aurora: withWarn({
+    bg: "#070c17",
+    surfaceInset: "#050916",
+    panel: "#09101f",
+    panelSolid: "#0d1426",
+    editorBg: "#060a15",
+    chrome: "#020616",
+    surfaceRaised: "#161e31",
+    surfaceOverlay: "rgba(13,20,38,0.92)",
+    border: "rgba(248,250,252,0.08)",
+    borderStrong: "rgba(248,250,252,0.14)",
+    borderMuted: "rgba(248,250,252,0.045)",
+    divider: "rgba(248,250,252,0.06)",
+    text: "#edf3ff",
+    textDim: "#c1cce2",
+    textMute: "#9eadc8",
+    textDisabled: "rgba(237,243,255,0.38)",
+    hover: "rgba(248,250,252,0.055)",
+    hoverStrong: "rgba(248,250,252,0.10)",
+    active: "rgba(122,124,240,0.16)",
+    accent: "#7a7cf0",
+    accentHover: "#9294ff",
+    accentMuted: "#a8b0f7",
+    onAccent: "#ffffff",
+    success: "#4cd4a0",
+    onSuccess: "#06140b",
+    warning: "#e8c050",
+    onWarning: "#1a1000",
+    danger: "#f07888",
+    onDanger: "#160606",
+    info: "#68a8f8",
+    onInfo: "#071224",
+    chipBg: "rgba(248,250,252,0.065)",
+    scrollbar: "rgba(248,250,252,0.24)",
+    scrollbarHover: "rgba(248,250,252,0.38)",
+    selection: "rgba(122,124,240,0.24)",
     terminal: {
-      black: "#10121c",
-      red: "#f07888",
-      green: "#4cd4a0",
-      yellow: "#e8c050",
-      blue: "#68a8f8",
-      magenta: "#b890f8",
-      cyan: "#58d0e8",
-      white: "#dce4f5",
-      brightBlack: "#5e6a85",
-      brightRed: "#f8a0b0",
-      brightGreen: "#78e8b8",
-      brightYellow: "#f0d878",
-      brightBlue: "#98c4ff",
-      brightMagenta: "#d4b0ff",
-      brightCyan: "#88e8ff",
-      brightWhite: "#f0f4ff",
+      black: "#10121c", red: "#f07888", green: "#4cd4a0", yellow: "#e8c050",
+      blue: "#68a8f8", magenta: "#b890f8", cyan: "#58d0e8", white: "#dce4f5",
+      brightBlack: "#5e6a85", brightRed: "#f8a0b0", brightGreen: "#78e8b8", brightYellow: "#f0d878",
+      brightBlue: "#98c4ff", brightMagenta: "#d4b0ff", brightCyan: "#88e8ff", brightWhite: "#f0f4ff",
     },
-  },
-  {
-    id: "frost",
-    label: "Frost",
+    glass: {
+      tintHue: 265, refraction: 1.12, blurMultiplier: 1.1, specularStrength: 1.15,
+      sheenStrength: 1.05, contrastEdgeStrength: 1, aberrationBias: 0.5, isLight: false,
+    },
+    isLight: false,
+  }),
+
+  frost: withWarn({
+    bg: "#f8fafc",
+    surfaceInset: "#edf2f7",
+    panel: "#ffffff",
+    panelSolid: "#ffffff",
+    editorBg: "#fbfdff",
+    chrome: "#eef2f8",
+    surfaceRaised: "#ffffff",
+    surfaceOverlay: "rgba(255,255,255,0.94)",
+    border: "rgba(15,23,42,0.10)",
+    borderStrong: "rgba(15,23,42,0.16)",
+    borderMuted: "rgba(15,23,42,0.05)",
+    divider: "rgba(15,23,42,0.07)",
+    text: "#172033",
+    textDim: "#3b485f",
+    textMute: "#60708a",
+    textDisabled: "rgba(23,32,51,0.38)",
+    hover: "rgba(15,23,42,0.05)",
+    hoverStrong: "rgba(15,23,42,0.08)",
+    active: "rgba(37,99,235,0.11)",
+    accent: "#2563eb",
+    accentHover: "#1d4ed8",
+    accentMuted: "#5b7ff0",
+    onAccent: "#ffffff",
+    success: "#047857",
+    onSuccess: "#ffffff",
+    warning: "#b45309",
+    onWarning: "#ffffff",
+    danger: "#c53030",
+    onDanger: "#ffffff",
+    info: "#1d4ed8",
+    onInfo: "#ffffff",
+    chipBg: "rgba(15,23,42,0.05)",
+    scrollbar: "rgba(15,23,42,0.20)",
+    scrollbarHover: "rgba(15,23,42,0.34)",
+    selection: "rgba(37,99,235,0.20)",
+    terminal: {
+      black: "#e2e6ee", red: "#c53030", green: "#047857", yellow: "#b45309",
+      blue: "#1d4ed8", magenta: "#7c3aed", cyan: "#0e7490", white: "#1e293b",
+      brightBlack: "#64748b", brightRed: "#dc2626", brightGreen: "#059669", brightYellow: "#d97706",
+      brightBlue: "#2563eb", brightMagenta: "#6d28d9", brightCyan: "#0891b2", brightWhite: "#0f172a",
+    },
+    glass: {
+      tintHue: 250, refraction: 0.55, blurMultiplier: 0.92, specularStrength: 0.7,
+      sheenStrength: 0.65, contrastEdgeStrength: 1.25, aberrationBias: 0.2, isLight: true,
+    },
     isLight: true,
-    neutralHue: 250,
-    neutralChroma: 0.012,
-    accentHue: 250,
-    accentChroma: 0.14,
-    surfaces: { bg: 0.97, panel: 0.99, panelSolid: 0.995, editorBg: 0.985, chrome: 0.96, raised: 1, inset: 0.94 },
-    text: { primary: 0.22, dim: 0.38, mute: 0.5 },
-    accent: { l: 0.55, c: 0.16, h: 250 },
-    semantic: {
-      success: { l: 0.48, c: 0.12, h: 160 },
-      warning: { l: 0.58, c: 0.14, h: 65 },
-      danger: { l: 0.52, c: 0.18, h: 25 },
-      info: { l: 0.5, c: 0.16, h: 255 },
+  }),
+
+  midnight: withWarn({
+    bg: "#000000",
+    surfaceInset: "#020202",
+    panel: "#0a0a0a",
+    panelSolid: "#101010",
+    editorBg: "#050505",
+    chrome: "#080808",
+    surfaceRaised: "#1a1a1a",
+    surfaceOverlay: "rgba(16,16,16,0.92)",
+    border: "rgba(248,250,252,0.08)",
+    borderStrong: "rgba(248,250,252,0.14)",
+    borderMuted: "rgba(248,250,252,0.045)",
+    divider: "rgba(248,250,252,0.06)",
+    text: "#f1f1f1",
+    textDim: "#c7c7c7",
+    textMute: "#a7a7a7",
+    textDisabled: "rgba(241,241,241,0.38)",
+    hover: "rgba(248,250,252,0.055)",
+    hoverStrong: "rgba(248,250,252,0.10)",
+    active: "rgba(184,144,248,0.16)",
+    accent: "#b890f8",
+    accentHover: "#c5a4ff",
+    accentMuted: "#d4b0ff",
+    onAccent: "#10021f",
+    success: "#78e8b8",
+    onSuccess: "#06140b",
+    warning: "#f0d878",
+    onWarning: "#1a1000",
+    danger: "#f8a0a0",
+    onDanger: "#160606",
+    info: "#98c4ff",
+    onInfo: "#071224",
+    chipBg: "rgba(248,250,252,0.065)",
+    scrollbar: "rgba(248,250,252,0.24)",
+    scrollbarHover: "rgba(248,250,252,0.38)",
+    selection: "rgba(184,144,248,0.24)",
+    terminal: {
+      black: "#0a0a0a", red: "#f07070", green: "#4cd4a0", yellow: "#e8c050",
+      blue: "#68a8f8", magenta: "#b890f8", cyan: "#58d0e8", white: "#e8e8e8",
+      brightBlack: "#666666", brightRed: "#f8a0a0", brightGreen: "#78e8b8", brightYellow: "#f0d878",
+      brightBlue: "#98c4ff", brightMagenta: "#d4b0ff", brightCyan: "#88e8ff", brightWhite: "#ffffff",
     },
     glass: {
-      tintHue: 250,
-      refraction: 0.55,
-      blurMultiplier: 0.92,
-      specularStrength: 0.7,
-      sheenStrength: 0.65,
-      contrastEdgeStrength: 1.25,
-      aberrationBias: 0.2,
-      isLight: true,
+      tintHue: 280, refraction: 1.15, blurMultiplier: 1.05, specularStrength: 1.2,
+      sheenStrength: 0.9, contrastEdgeStrength: 1.15, aberrationBias: 0.45, isLight: false,
     },
-    terminal: {
-      black: "#e2e6ee",
-      red: "#c53030",
-      green: "#047857",
-      yellow: "#b45309",
-      blue: "#1d4ed8",
-      magenta: "#7c3aed",
-      cyan: "#0e7490",
-      white: "#1e293b",
-      brightBlack: "#64748b",
-      brightRed: "#dc2626",
-      brightGreen: "#059669",
-      brightYellow: "#d97706",
-      brightBlue: "#2563eb",
-      brightMagenta: "#6d28d9",
-      brightCyan: "#0891b2",
-      brightWhite: "#0f172a",
-    },
-  },
-  {
-    id: "midnight",
-    label: "Midnight",
     isLight: false,
-    neutralHue: 0,
-    neutralChroma: 0,
-    accentHue: 280,
-    accentChroma: 0.16,
-    surfaces: { bg: 0, panel: 0.08, panelSolid: 0.1, editorBg: 0.04, chrome: 0.06, raised: 0.14, inset: 0 },
-    text: { primary: 0.94, dim: 0.72, mute: 0.55 },
-    accent: { l: 0.64, c: 0.17, h: 280 },
-    semantic: {
-      success: { l: 0.72, c: 0.12, h: 165 },
-      warning: { l: 0.82, c: 0.13, h: 85 },
-      danger: { l: 0.68, c: 0.17, h: 22 },
-      info: { l: 0.7, c: 0.12, h: 245 },
-    },
-    glass: {
-      tintHue: 280,
-      refraction: 1.15,
-      blurMultiplier: 1.05,
-      specularStrength: 1.2,
-      sheenStrength: 0.9,
-      contrastEdgeStrength: 1.15,
-      aberrationBias: 0.45,
-      isLight: false,
-    },
-    terminal: {
-      black: "#0a0a0a",
-      red: "#f07070",
-      green: "#4cd4a0",
-      yellow: "#e8c050",
-      blue: "#68a8f8",
-      magenta: "#b890f8",
-      cyan: "#58d0e8",
-      white: "#e8e8e8",
-      brightBlack: "#666666",
-      brightRed: "#f8a0a0",
-      brightGreen: "#78e8b8",
-      brightYellow: "#f0d878",
-      brightBlue: "#98c4ff",
-      brightMagenta: "#d4b0ff",
-      brightCyan: "#88e8ff",
-      brightWhite: "#ffffff",
-    },
-  },
-];
+  }),
+};
 
-export const THEMES: Record<string, ThemePalette> = Object.fromEntries(
-  THEME_SPECS.map((spec) => [spec.id, buildFromSpec(spec)]),
-);
-
-export const themeList = THEME_SPECS.map((spec) => {
-  const t = THEMES[spec.id];
-  return {
-    id: spec.id,
-    label: spec.label,
-    bg: t.bg,
-    text: t.textDim,
-    panel: t.panel,
-  };
-});
+export const themeList = Object.entries(THEMES).map(([id, t]) => ({
+  id,
+  label:
+    id === "premium-grok"
+      ? "Premium Grok"
+      : id
+          .split("-")
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(" "),
+  bg: t.bg,
+  text: t.textDim,
+  panel: t.panel,
+}));
