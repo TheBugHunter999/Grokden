@@ -279,7 +279,7 @@
 </script>
 
 <div class="swarm" class:no-animations={!settings.enableAnimations}>
-  <header class="swarm-toolbar liquid-glass liquid-glass-chrome">
+  <header class="swarm-toolbar glass glass--pill">
     <div class="swarm-title">
       <img class="swarm-logo" src="/favicon.png" alt="" width="20" height="20" />
       <div>
@@ -332,7 +332,7 @@
           More
         </button>
         {#if moreMenuOpen}
-          <div class="toolbar-menu-pop" role="menu">
+          <div class="toolbar-menu-pop glass" role="menu">
             <button
               type="button"
               role="menuitem"
@@ -367,8 +367,8 @@
     >
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
-          <div class="agent-cell empty-slot" class:span-cols={shouldSpanAgentCell(slotCount, i)}>
-            <div class="cell-head liquid-glass">
+          <div class="agent-cell card empty-slot" class:span-cols={shouldSpanAgentCell(slotCount, i)}>
+            <div class="cell-head glass">
               <span class="cell-index">{i + 1}</span>
               <span class="cell-title">Agent {i + 1}</span>
               <span class="cell-status muted">Not started</span>
@@ -381,14 +381,14 @@
       {:else}
         {#each agents as agent, i (agent.id)}
           <div
-            class="agent-cell"
+            class="agent-cell card"
             class:active={agent.status === "running"}
             class:launching={agent.status === "launching"}
             class:error={agent.status === "error"}
             class:done={agent.status === "done"}
             class:span-cols={shouldSpanAgentCell(slotCount, i)}
           >
-            <div class="cell-head liquid-glass">
+            <div class="cell-head glass">
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
                 <span class="cell-title" title={agent.label}>{agent.label}</span>
@@ -799,10 +799,15 @@
     flex-shrink: 0;
   }
   .cell-pip.live {
-    background: var(--success);
+    background: #86efac;
     opacity: 1;
     animation: pulse-live 1.4s ease-in-out infinite;
   }
+
+  .agent-cell.launching .cell-pip { background: #fbbf24; opacity: 1; }
+  .agent-cell.error .cell-pip { background: #f87171; opacity: 1; }
+  .agent-cell.done .cell-pip { background: #7dd3fc; opacity: 1; }
+  .agent-cell.active .cell-pip { background: #86efac; opacity: 1; }
   @keyframes pulse-live {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 1; }

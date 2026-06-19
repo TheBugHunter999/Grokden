@@ -37,8 +37,10 @@
 
   let commandText = $state("");
   let commandInput = $state<HTMLInputElement | null>(null);
-  let selectedAgentPreset = $state<AgentModePreset>("review-driven");
+  let selectedAgentPreset = $state<AgentModePreset>("agent-driven");
   let storedWorkspaces = $state<RecentWorkspace[]>([]);
+  let showQuickMenu = $state(false);
+  let showModeMenu = $state(false);
 
   const agentPresets: {
     id: AgentModePreset;
@@ -56,6 +58,12 @@
     { id: "agent-driven", title: "Agent-driven", caption: "Fewer interruptions" },
     { id: "custom", title: "Custom", caption: "Tune policies yourself" },
   ];
+
+  const modeLabel = $derived(
+    selectedAgentPreset === "agent-driven"
+      ? "Heavy"
+      : (agentPresets.find((p) => p.id === selectedAgentPreset)?.title ?? "Heavy"),
+  );
 
   const themePreviews: {
     id: WelcomeThemeId;
@@ -179,68 +187,116 @@
   });
 </script>
 
-<div class="grok-welcome">
-  <div class="grok-welcome__shell">
-    <header class="grok-welcome__hero">
-      <div class="grok-welcome__hero-glow" aria-hidden="true"></div>
-      <h1 class="grok-welcome__wordmark">{APP_DISPLAY_NAME}</h1>
-      <p class="grok-welcome__tagline">{WELCOME_TAGLINE}</p>
-    </header>
+<div class="grok-welcome welcome-stage">
+  <div class="ambient-grid" aria-hidden="true"></div>
+  <div class="ambient-vignette" aria-hidden="true"></div>
 
-    <div class="grok-welcome__command-bar liquid-glass" role="search">
+  <div class="welcome-center grok-welcome__shell">
+    <div class="welcome-stage__utilities">
+      <button type="button" class="welcome-stage__util" onclick={onLaunchAgents}>Parallel</button>
+      <span class="welcome-stage__private">
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
+          <rect x="4" y="7" width="8" height="7" rx="1" />
+          <path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7" />
+        </svg>
+        Private
+      </span>
+    </div>
+
+    <div class="welcome-supergrok-hero" aria-label="SuperGrok Heavy">
+      <span class="welcome-supergrok-word">SuperGrok</span>
+      <span class="welcome-supergrok-badge">HEAVY</span>
+    </div>
+
+    <div class="cmdbar glass glass--pill" role="search">
       <button
         type="button"
-        class="grok-welcome__command-add"
-        aria-label="Add action"
-        title="Open folder"
-        onclick={onOpenFolder}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-        </svg>
-      </button>
+        class="cmdbar__plus"
+        aria-label="Quick actions"
+        aria-expanded={showQuickMenu}
+        onclick={() => {
+          showQuickMenu = !showQuickMenu;
+          showModeMenu = false;
+        }}
+      >+</button>
+
+      {#if showQuickMenu}
+        <div class="cmdbar__menu glass" role="menu">
+          {#each quickChips as chip}
+            <button
+              type="button"
+              class="cmdbar__menu-item"
+              role="menuitem"
+              onclick={() => {
+                runQuickAction(chip.id);
+                showQuickMenu = false;
+              }}
+            >{chip.label}</button>
+          {/each}
+        </div>
+      {/if}
+
       <input
         bind:this={commandInput}
-        class="grok-welcome__command-input"
+        class="cmdbar__input"
         type="text"
-        placeholder="Open folder, run a command, or launch an agent..."
+        placeholder="How can I help you today?"
         bind:value={commandText}
         onkeydown={handleCommandKeydown}
         aria-label="Command"
       />
-      <button
-        type="button"
-        class="grok-welcome__command-mode"
-        aria-haspopup="listbox"
-        aria-disabled="true"
-        title="Mode (coming soon)"
-        disabled
-      >
-        <span>Agent</span>
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        class="grok-welcome__command-orb"
-        aria-label="Run command"
-        title="Run command"
-        onclick={submitCommand}
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M8 3v9M4.5 6.5 8 3l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
+
+      <div class="cmdbar__right">
+        <button
+          type="button"
+          class="cmdbar__mode"
+          aria-haspopup="listbox"
+          aria-expanded={showModeMenu}
+          onclick={() => {
+            showModeMenu = !showModeMenu;
+            showQuickMenu = false;
+          }}
+        >
+          {modeLabel} <span class="chev">▾</span>
+        </button>
+
+        {#if showModeMenu}
+          <div class="cmdbar__menu cmdbar__menu--mode glass" role="listbox">
+            {#each agentPresets as preset}
+              <button
+                type="button"
+                class="cmdbar__menu-item"
+                class:cmdbar__menu-item--active={selectedAgentPreset === preset.id}
+                role="option"
+                aria-selected={selectedAgentPreset === preset.id}
+                onclick={() => {
+                  selectedAgentPreset = preset.id;
+                  showModeMenu = false;
+                }}
+              >{preset.id === "agent-driven" ? "Heavy" : preset.title}</button>
+            {/each}
+          </div>
+        {/if}
+
+        <button class="cmdbar__icon" title="Voice input — coming soon" disabled aria-label="Voice input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M6 11a6 6 0 0 0 12 0M12 17v3" stroke-linecap="round" />
+          </svg>
+        </button>
+
+        <button class="cmdbar__voice" title="Voice input — coming soon" disabled aria-label="Voice waveform">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="4" y="9" width="2" height="6" rx="1" />
+            <rect x="8" y="6" width="2" height="12" rx="1" />
+            <rect x="12" y="8" width="2" height="8" rx="1" />
+            <rect x="16" y="5" width="2" height="14" rx="1" />
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div class="grok-welcome__chips" role="group" aria-label="Quick actions">
-      {#each quickChips as chip}
-        <button type="button" class="grok-welcome__chip" onclick={() => runQuickAction(chip.id)}>
-          {chip.label}
-        </button>
-      {/each}
-    </div>
+    <p class="welcome-title grok-welcome__tagline">{WELCOME_TAGLINE}</p>
 
     <section class="grok-welcome__section" aria-labelledby="grok-welcome-recent-heading">
       <div class="grok-welcome__section-head">
