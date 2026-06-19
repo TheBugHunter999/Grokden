@@ -190,6 +190,22 @@
       <div class="row"><div class="meta"><div class="label">Liquid Glass</div><div class="desc">Lower values make the transparent window blurrier, glossier, and more translucent while keeping text readable.</div></div>
         <div class="stepper"><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency - 5, 50, 100))}>-</button><span>{settings.windowTransparency}%</span><button type="button" onclick={() => (settings.windowTransparency = clamp(settings.windowTransparency + 5, 50, 100))}>+</button></div></div>
     {/if}
+    {#if showRow("appearance", "Refraction edge displacement liquid glass")}
+      <div class="row"><div class="meta"><div class="label">Refraction</div><div class="desc">Edge lensing strength for Liquid Glass surfaces (0 = frosted only).</div></div>
+        <div class="stepper"><button type="button" onclick={() => (settings.glassRefraction = clamp(settings.glassRefraction - 5, 0, 100))}>-</button><span>{settings.glassRefraction}%</span><button type="button" onclick={() => (settings.glassRefraction = clamp(settings.glassRefraction + 5, 0, 100))}>+</button></div></div>
+    {/if}
+    {#if showRow("appearance", "Edge intensity glass specular highlight")}
+      <div class="row"><div class="meta"><div class="label">Edge Intensity</div><div class="desc">Specular rim and contrast edge strength on glass panels.</div></div>
+        <div class="stepper"><button type="button" onclick={() => (settings.glassEdgeIntensity = clamp(settings.glassEdgeIntensity - 5, 0, 100))}>-</button><span>{settings.glassEdgeIntensity}%</span><button type="button" onclick={() => (settings.glassEdgeIntensity = clamp(settings.glassEdgeIntensity + 5, 0, 100))}>+</button></div></div>
+    {/if}
+    {#if showRow("appearance", "Chromatic aberration glass color fringe")}
+      <div class="row"><div class="meta"><div class="label">Chromatic Aberration</div><div class="desc">Subtle RGB fringe at glass edges (WebView2 only).</div></div>
+        <div class="stepper"><button type="button" onclick={() => (settings.glassChromaticAberration = clamp(settings.glassChromaticAberration - 5, 0, 100))}>-</button><span>{settings.glassChromaticAberration}%</span><button type="button" onclick={() => (settings.glassChromaticAberration = clamp(settings.glassChromaticAberration + 5, 0, 100))}>+</button></div></div>
+    {/if}
+    {#if showRow("appearance", "Reduce effects glass performance accessibility")}
+      <div class="row"><div class="meta"><div class="label">Reduce Effects</div><div class="desc">Disable refraction and chromatic aberration for better performance or accessibility.</div></div>
+        <button type="button" class="toggle" class:on={settings.reduceGlassEffects} role="switch" aria-checked={settings.reduceGlassEffects} aria-label="Reduce glass effects" onclick={() => (settings.reduceGlassEffects = !settings.reduceGlassEffects)}><span class="knob"></span></button></div>
+    {/if}
     {#if showRow("appearance", "Sidebar Position left right panel explorer")}
       <div class="row"><div class="meta"><div class="label">Sidebar Position</div><div class="desc">Which side of the window the primary sidebar appears on.</div></div>
         <select class="select" bind:value={settings.sidebarPosition}>

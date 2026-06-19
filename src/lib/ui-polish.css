@@ -233,3 +233,15 @@
     --glass-displacement-scale: 0;
   }
 }
+
+html[data-reduce-glass="1"] .glass-window .liquid-glass {
+  --glass-displacement-scale: 0;
+  --glass-aberration: 0;
+  backdrop-filter: blur(var(--glass-blur-panel, 16px)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-panel, 16px)) saturate(130%);
+}
+
+html[data-reduce-glass="1"] .glass-window .liquid-glass.liquid-glass-chrome {
+  backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(130%);
+}

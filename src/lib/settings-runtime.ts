@@ -402,10 +402,15 @@ export function buildGlassThemeVars(settings: AppSettings): string {
   const lineLight = isLight ? "#0f172a" : "#ffffff";
   const lineDark = isLight ? "#ffffff" : "#000000";
 
-  const refraction = strength * profile.refraction * (isLight ? 0.55 : 1);
-  const displacementScale = Math.round(refraction * 22 * 10) / 10;
-  const edgeWidth = (0.35 + strength * 0.45) * (isLight ? 0.85 : 1);
-  const aberration = strength * profile.aberrationBias * (isLight ? 0.35 : 1);
+  const reduce = settings.reduceGlassEffects;
+  const refractionMix = clamp(settings.glassRefraction, 0, 100) / 50;
+  const edgeMix = clamp(settings.glassEdgeIntensity, 0, 100) / 50;
+  const aberMix = clamp(settings.glassChromaticAberration, 0, 100) / 50;
+
+  const refraction = strength * profile.refraction * (isLight ? 0.55 : 1) * refractionMix;
+  const displacementScale = reduce ? 0 : Math.round(refraction * 22 * 10) / 10;
+  const edgeWidth = (0.35 + strength * 0.45 * edgeMix) * (isLight ? 0.85 : 1);
+  const aberration = reduce ? 0 : strength * profile.aberrationBias * (isLight ? 0.35 : 1) * aberMix;
 
   return [
     `--glass-strength:${strength.toFixed(3)}`,
@@ -534,6 +539,10 @@ const SCOPED_SETTING_KEYS = [
   "uiDensity",
   "enableAnimations",
   "windowTransparency",
+  "glassRefraction",
+  "glassEdgeIntensity",
+  "glassChromaticAberration",
+  "reduceGlassEffects",
   "iconTheme",
   "showBreadcrumbs",
   "smoothScrolling",
@@ -665,6 +674,7 @@ export function syncRuntimeFlags(settings: AppSettings): RuntimeFlags {
     };
     document.documentElement.lang = settings.uiLanguage || "en";
     document.documentElement.dataset.uiLang = settings.uiLanguage || "en";
+    document.documentElement.dataset.reduceGlass = settings.reduceGlassEffects ? "1" : "0";
     applyDeveloperRuntime(settings);
 
     const scopedJson = JSON.stringify(pickScopedSettings(settings));

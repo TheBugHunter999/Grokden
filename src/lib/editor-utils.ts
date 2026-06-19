@@ -41,6 +41,10 @@ export type AppSettings = {
   uiDensity: string;
   enableAnimations: boolean;
   windowTransparency: number;
+  glassRefraction: number;
+  glassEdgeIntensity: number;
+  glassChromaticAberration: number;
+  reduceGlassEffects: boolean;
   sidebarPosition: string;
   iconTheme: string;
   showBreadcrumbs: boolean;
@@ -384,6 +388,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   uiDensity: "comfortable",
   enableAnimations: true,
   windowTransparency: 72,
+  glassRefraction: 50,
+  glassEdgeIntensity: 50,
+  glassChromaticAberration: 25,
+  reduceGlassEffects: false,
   sidebarPosition: "left",
   iconTheme: "default",
   showBreadcrumbs: true,
