@@ -13,7 +13,7 @@
     lastOpened?: number;
   };
 
-  export type WelcomeThemeId = "default-dark" | "glass" | "high-contrast";
+  export type WelcomeThemeId = "default-dark" | "high-contrast";
 
   type Props = {
     onOpenFolder: () => void;
@@ -76,7 +76,6 @@
     sidebar: string;
     editor: string;
     accent: string;
-    glass?: boolean;
   }[] = [
     {
       id: "default-dark",
@@ -85,15 +84,6 @@
       sidebar: "#211b26",
       editor: "#2b2b29",
       accent: "#cc7d5e",
-    },
-    {
-      id: "glass",
-      label: "Glass",
-      frame: "rgba(24, 28, 36, 0.55)",
-      sidebar: "rgba(17, 22, 30, 0.62)",
-      editor: "rgba(15, 19, 26, 0.48)",
-      accent: "#5cc9c7",
-      glass: true,
     },
     {
       id: "high-contrast",
@@ -197,23 +187,12 @@
   <div class="ambient-vignette" aria-hidden="true"></div>
 
   <div class="welcome-center grok-welcome__shell">
-    <div class="welcome-stage__utilities">
-      <button type="button" class="welcome-stage__util" onclick={launchParallelAgents}>Parallel</button>
-      <span class="welcome-stage__private">
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
-          <rect x="4" y="7" width="8" height="7" rx="1" />
-          <path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7" />
-        </svg>
-        Private
-      </span>
-    </div>
-
     <div class="welcome-supergrok-hero" aria-label="SuperGrok Heavy">
       <span class="welcome-supergrok-word">SuperGrok</span>
       <span class="welcome-supergrok-badge">HEAVY</span>
     </div>
 
-    <div class="cmdbar glass glass--pill" role="search">
+    <div class="cmdbar cmdbar--pill" role="search">
       <button
         type="button"
         class="cmdbar__plus"
@@ -226,7 +205,7 @@
       >+</button>
 
       {#if showQuickMenu}
-        <div class="cmdbar__menu glass" role="menu">
+        <div class="cmdbar__menu" role="menu">
           {#each quickChips as chip}
             <button
               type="button"
@@ -266,7 +245,7 @@
         </button>
 
         {#if showModeMenu}
-          <div class="cmdbar__menu cmdbar__menu--mode glass" role="listbox">
+          <div class="cmdbar__menu cmdbar__menu--mode" role="listbox">
             {#each agentPresets as preset}
               <button
                 type="button"
@@ -303,6 +282,43 @@
 
     <p class="welcome-title grok-welcome__tagline">{WELCOME_TAGLINE}</p>
 
+    <section class="grok-welcome__section grok-welcome__section--themes" aria-labelledby="grok-welcome-themes-heading">
+      <div class="grok-welcome__section-head">
+        <h2 id="grok-welcome-themes-heading" class="grok-welcome__section-title">Themes</h2>
+      </div>
+      <div class="grok-welcome__theme-row">
+        {#each themePreviews as theme}
+          <article class="grok-welcome__theme-card">
+            <div
+              class="grok-welcome__theme-preview"
+              style:--grok-theme-frame={theme.frame}
+              style:--grok-theme-side={theme.sidebar}
+              style:--grok-theme-editor={theme.editor}
+              style:--grok-theme-accent={theme.accent}
+            >
+              <span class="grok-welcome__theme-bar"></span>
+              <span class="grok-welcome__theme-side"></span>
+              <span class="grok-welcome__theme-editor">
+                <span class="grok-welcome__theme-line"></span>
+                <span class="grok-welcome__theme-line grok-welcome__theme-line--short"></span>
+                <span class="grok-welcome__theme-line grok-welcome__theme-line--accent"></span>
+              </span>
+            </div>
+            <div class="grok-welcome__theme-footer">
+              <span class="grok-welcome__theme-label">{theme.label}</span>
+              <button
+                type="button"
+                class="grok-welcome__theme-apply"
+                onclick={() => onApplyTheme(theme.id)}
+              >
+                Apply
+              </button>
+            </div>
+          </article>
+        {/each}
+      </div>
+    </section>
+
     <section class="grok-welcome__section" aria-labelledby="grok-welcome-recent-heading">
       <div class="grok-welcome__section-head">
         <h2 id="grok-welcome-recent-heading" class="grok-welcome__section-title">Recent workspaces</h2>
@@ -313,7 +329,7 @@
             <li>
               <button
                 type="button"
-                class="grok-welcome__workspace-row liquid-glass"
+                class="grok-welcome__workspace-row"
                 onclick={() => openWorkspace(workspace)}
               >
                 <span class="grok-welcome__workspace-icon" aria-hidden="true">
@@ -367,42 +383,5 @@
       </div>
     </section>
 
-    <section class="grok-welcome__section" aria-labelledby="grok-welcome-themes-heading">
-      <div class="grok-welcome__section-head">
-        <h2 id="grok-welcome-themes-heading" class="grok-welcome__section-title">Themes</h2>
-      </div>
-      <div class="grok-welcome__theme-row">
-        {#each themePreviews as theme}
-          <article class="grok-welcome__theme-card">
-            <div
-              class="grok-welcome__theme-preview"
-              class:grok-welcome__theme-preview--glass={theme.glass}
-              style:--grok-theme-frame={theme.frame}
-              style:--grok-theme-side={theme.sidebar}
-              style:--grok-theme-editor={theme.editor}
-              style:--grok-theme-accent={theme.accent}
-            >
-              <span class="grok-welcome__theme-bar"></span>
-              <span class="grok-welcome__theme-side"></span>
-              <span class="grok-welcome__theme-editor">
-                <span class="grok-welcome__theme-line"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--short"></span>
-                <span class="grok-welcome__theme-line grok-welcome__theme-line--accent"></span>
-              </span>
-            </div>
-            <div class="grok-welcome__theme-footer">
-              <span class="grok-welcome__theme-label">{theme.label}</span>
-              <button
-                type="button"
-                class="grok-welcome__theme-apply"
-                onclick={() => onApplyTheme(theme.id)}
-              >
-                Apply
-              </button>
-            </div>
-          </article>
-        {/each}
-      </div>
-    </section>
   </div>
 </div>

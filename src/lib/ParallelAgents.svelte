@@ -440,7 +440,7 @@
     {/if}
 
     <aside class="mission-board" class:open={!compactLayout || goalsPanelOpen}>
-      <div class="board-head liquid-glass">
+      <div class="board-head">
         <h3>Mission Board</h3>
         <span class="board-count">{goals.length} goals</span>
       </div>

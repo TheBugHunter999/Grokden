@@ -379,10 +379,11 @@ export function glassSurfaceMix(percent: number): GlassSurfaceMix {
 }
 
 /** Glass-only CSS variables — core theme vars (--bg, --text, etc.) stay opaque/readable. */
-export function buildGlassThemeVars(settings: AppSettings): string {
-  if (settings.windowTransparency >= 100) return "";
+export function buildGlassThemeVars(_settings: AppSettings): string {
+  // GROKDEN-FIX: Glass / liquid theme disabled.
+  return "";
 
-  const theme = THEMES[settings.theme] ?? THEMES["codex"];
+  /* const theme = THEMES[settings.theme] ?? THEMES["codex"];
   const profile = theme.glass;
   const isLight = theme.isLight ?? profile.isLight;
   const { strength, blurPx, chromeAlpha, panelAlpha, editorAlpha, borderAlpha } = glassSurfaceMix(
@@ -434,7 +435,7 @@ export function buildGlassThemeVars(settings: AppSettings): string {
     `--glass-displacement-scale:${displacementScale.toFixed(1)}`,
     `--glass-edge-width:${edgeWidth.toFixed(3)}`,
     `--glass-aberration:${aberration.toFixed(3)}`,
-  ].join(";");
+  ].join(";"); */
 }
 
 export function buildExtraThemeVars(settings: AppSettings): string {
@@ -620,9 +621,7 @@ export function buildStatusChips(
   if (settings.startupBehavior !== "restore") {
     chips.push({ label: `Start: ${settings.startupBehavior}`, tone: "muted" });
   }
-  if (settings.windowTransparency < 100) {
-    chips.push({ label: `${settings.windowTransparency}% glass`, tone: "muted" });
-  }
+
   if (!settings.enableAnimations) chips.push({ label: "No motion", tone: "muted" });
   if (!settings.showBreadcrumbs) chips.push({ label: "No breadcrumbs", tone: "muted" });
   if (!settings.smoothScrolling) chips.push({ label: "Instant scroll", tone: "muted" });

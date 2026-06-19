@@ -8,15 +8,11 @@
     DEFAULT_WINDOW_WIDTH,
   } from "$lib/window-lifecycle";
 
-  type EnvironmentMode = "standard" | "glass";
-
   let {
     locked = false,
     menuBar,
     utilities,
     workspaceTitle,
-    environmentMode = "standard",
-    onEnvironmentModeChange,
     onSearchClick,
   }: {
     /** Setup wizard: centered, no drag, no maximize. */
@@ -24,8 +20,6 @@
     menuBar?: import("svelte").Snippet;
     utilities?: import("svelte").Snippet;
     workspaceTitle?: string;
-    environmentMode?: EnvironmentMode;
-    onEnvironmentModeChange?: (mode: EnvironmentMode) => void;
     onSearchClick?: () => void;
   } = $props();
 
@@ -35,7 +29,6 @@
   let appWindow: ReturnType<typeof getCurrentWindow> | null = null;
 
   let expanded = $derived(maximized || fullscreen);
-  let showModeSwitch = $derived(!locked && Boolean(onEnvironmentModeChange));
   let showSearch = $derived(!locked && Boolean(onSearchClick));
 
   async function syncWindowState() {
@@ -105,11 +98,6 @@
     void appWindow?.close();
   }
 
-  function setEnvironmentMode(mode: EnvironmentMode) {
-    if (mode === environmentMode) return;
-    onEnvironmentModeChange?.(mode);
-  }
-
   function onDragMouseDown(e: MouseEvent) {
     if (locked || !appWindow || e.button !== 0) return;
     const target = e.target as HTMLElement;
@@ -123,7 +111,7 @@
 </script>
 
 <div
-  class="window-chrome liquid-glass liquid-glass-chrome"
+  class="window-chrome"
   class:locked
   class:maximized={expanded}
   role="presentation"
@@ -151,31 +139,8 @@
     </div>
   {/if}
 
-  {#if showModeSwitch || showSearch}
+  {#if showSearch}
     <div class="chrome-actions">
-      {#if showModeSwitch}
-        <div class="env-mode-switch" role="group" aria-label="Environment mode">
-          <button
-            type="button"
-            class="env-mode-seg"
-            class:active={environmentMode === "standard"}
-            aria-pressed={environmentMode === "standard"}
-            onclick={() => setEnvironmentMode("standard")}
-          >
-            Standard
-          </button>
-          <button
-            type="button"
-            class="env-mode-seg"
-            class:active={environmentMode === "glass"}
-            aria-pressed={environmentMode === "glass"}
-            onclick={() => setEnvironmentMode("glass")}
-          >
-            Glass
-          </button>
-        </div>
-      {/if}
-
       {#if showSearch}
         <button
           type="button"

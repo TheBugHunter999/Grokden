@@ -24,7 +24,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="trust-backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && onRestricted()}>
-  <div class="trust-dialog dialog glass glass--strong" role="dialog" aria-modal="true" aria-labelledby="trust-title">
+  <div class="trust-dialog dialog" role="dialog" aria-modal="true" aria-labelledby="trust-title">
     <div class="trust-icon" aria-hidden="true">
       <svg viewBox="0 0 48 48" fill="none">
         <path

@@ -654,7 +654,7 @@
     </div>
   {/if}
 
-  <div class="grok-canvas__toolbar glass" role="toolbar" aria-label="Canvas tools">
+  <div class="grok-canvas__toolbar" role="toolbar" aria-label="Canvas tools">
     <button
       type="button"
       class="grok-canvas__tool-btn"

@@ -39,9 +39,9 @@
   height: 100%;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8vh 20px 32px;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4vh 20px 48px;
   box-sizing: border-box;
   overflow: auto;
   background: var(--grok-bg);
@@ -444,9 +444,13 @@
 }
 
 /* Theme previews */
+.grok-welcome__section--themes {
+  margin-top: 4px;
+}
+
 .grok-welcome__theme-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -681,6 +685,13 @@
   margin: 0 auto;
 }
 
+.cmdbar--pill {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+}
+
 .cmdbar__plus {
   width: 32px;
   height: 32px;
@@ -795,10 +806,14 @@
   left: 0;
   min-width: 180px;
   padding: 6px;
-  z-index: 20;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
 }
 
 .cmdbar__menu--mode {

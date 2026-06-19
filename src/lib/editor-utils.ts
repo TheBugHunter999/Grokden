@@ -387,7 +387,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   confirmBeforeQuit: true,
   uiDensity: "comfortable",
   enableAnimations: true,
-  windowTransparency: 72,
+  windowTransparency: 100,
   glassRefraction: 50,
   glassEdgeIntensity: 50,
   glassChromaticAberration: 25,
@@ -729,11 +729,11 @@ export function loadSettings(): AppSettings {
           parsed.accent = ACCENT_MIGRATION[parsed.accent] ?? "violet";
         }
         if (parsed.grokModel) parsed.grokModel = migrateGrokModel(parsed.grokModel);
-        const glassMigrationKey = "Grokden.liquidGlassDefault.v1";
-        const hasMigratedGlass = localStorage.getItem(glassMigrationKey) === "1";
-        if (!hasMigratedGlass && (parsed.windowTransparency === undefined || parsed.windowTransparency === 100)) {
-          parsed.windowTransparency = DEFAULT_SETTINGS.windowTransparency;
-          localStorage.setItem(glassMigrationKey, "1");
+        // GROKDEN-FIX: Glass / liquid theme disabled — always opaque.
+        const opaqueMigrationKey = "Grokden.glassDisabled.v1";
+        if (localStorage.getItem(opaqueMigrationKey) !== "1") {
+          parsed.windowTransparency = 100;
+          localStorage.setItem(opaqueMigrationKey, "1");
         }
         return { ...DEFAULT_SETTINGS, ...parsed };
       }

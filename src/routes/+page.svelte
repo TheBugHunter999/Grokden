@@ -26,7 +26,6 @@
     buildEditorStyleVars,
     computeSearch,
     buildExtraThemeVars,
-    buildGlassThemeVars,
     buildGrokLaunchCommand,
     buildOutputPanelLines,
     buildStatusChips,
@@ -121,7 +120,7 @@
     retry as retryAppUpdate,
     restart as restartAppUpdate,
   } from "$lib/updater/updater-store.svelte";
-  import { getGlassDebugState, syncWindowGlass } from "$lib/window-transparency";
+  import { syncWindowGlass } from "$lib/window-transparency";
   import { bindViewportSync } from "$lib/viewport-sync";
   import { clearLayoutBridge, installLayoutBridge } from "$lib/layout-bridge";
   import FolderTrustDialog from "$lib/FolderTrustDialog.svelte";
@@ -211,13 +210,12 @@
     }
   });
 
-  let glassDebug = $state(getGlassDebugState());
-
+  // GROKDEN-FIX: Glass / liquid theme disabled — keep window opaque.
   $effect(() => {
-    const pct = settings.windowTransparency;
-    void syncWindowGlass(pct, buildGlassThemeVars(settings)).then(() => {
-      glassDebug = getGlassDebugState();
-    });
+    if (settings.windowTransparency !== 100) {
+      settings.windowTransparency = 100;
+    }
+    void syncWindowGlass(100, "");
   });
 
   let updateCheckStarted = $state(false);
@@ -693,10 +691,6 @@
         openSettings();
         break;
     }
-  }
-
-  function setEnvironmentMode(mode: "standard" | "glass") {
-    settings.windowTransparency = mode === "glass" ? 72 : 100;
   }
 
   let editorLines = $derived(
@@ -1526,26 +1520,11 @@
 
   function handleWelcomeTheme(themeId: WelcomeThemeId) {
     if (themeId === "default-dark") {
-      settings.theme = "codex";
-      settings.windowTransparency = 100;
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
-      }
-      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
-    } else if (themeId === "glass") {
-      settings.windowTransparency = 72;
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "1");
-      }
-      document.querySelector(".ide")?.classList.add("grokden-premium-theme");
+      settings.theme = "premium-grok";
     } else if (themeId === "high-contrast") {
       settings.theme = "midnight";
-      settings.windowTransparency = 100;
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("Grokden.premiumGrokTheme.enabled", "0");
-      }
-      document.querySelector(".ide")?.classList.remove("grokden-premium-theme");
     }
+    settings.windowTransparency = 100;
   }
 
   let recentWorkspaces = $state<RecentWorkspace[]>(loadRecentWorkspaces());
@@ -1918,15 +1897,6 @@
   onclick={closeContextMenu}
 />
 
-{#if settings.devTools && settings.windowTransparency < 100}
-  <div class="glass-debug-pill" aria-label="Glass debug" title="CSS backdrop-filter glass settings">
-    {glassDebug.percent}% · {glassDebug.effect}
-    {#if glassDebug.cssAlphas}
-      · blur {glassDebug.cssAlphas.blurPx}px · editor α{glassDebug.cssAlphas.editorAlpha.toFixed(2)} · panel α{glassDebug.cssAlphas.panelAlpha.toFixed(2)}
-    {/if}
-  </div>
-{/if}
-
 {#if contextMenu.open}
   <div
     class="context-menu"
@@ -1957,7 +1927,6 @@
 {#if workspaceVisible}
 <div
   class="ide{layoutClasses.ide} workspace-enter"
-  class:glass-window={settings.windowTransparency < 100}
   class:grokden-sidebar-hidden={!userSidebarOpen}
   style="{rootStyle};{layoutStyle}"
   data-ui-lang={settings.uiLanguage}
@@ -2043,22 +2012,6 @@
     </div>
 
     <div class="topbar-actions">
-      <div class="env-pills" role="group" aria-label="Environment mode">
-        <button
-          type="button"
-          class="env-pill"
-          class:active={settings.windowTransparency >= 100}
-          aria-pressed={settings.windowTransparency >= 100}
-          onclick={() => setEnvironmentMode("standard")}
-        >Standard</button>
-        <button
-          type="button"
-          class="env-pill"
-          class:active={settings.windowTransparency < 100}
-          aria-pressed={settings.windowTransparency < 100}
-          onclick={() => setEnvironmentMode("glass")}
-        >Glass</button>
-      </div>
       <button
         type="button"
         class="global-search-btn"
@@ -2120,7 +2073,7 @@
     {#if !settings.zenMode}
       <aside class="sidebar workspace-sidebar" aria-label="Workspace panel">
         {#if activePanel !== "explorer"}
-          <div class="sidebar-header liquid-glass">
+          <div class="sidebar-header">
             <span>{activePanel === "search" ? "Search" : "Source Control"}</span>
           </div>
         {/if}
@@ -2487,7 +2440,7 @@
         onintroend={() => document.documentElement.classList.remove("panel-animating")}
         onoutroend={() => document.documentElement.classList.remove("panel-animating")}
       >
-        <div class="secondary-header liquid-glass">
+        <div class="secondary-header">
           <div class="secondary-tabs" role="tablist" aria-label="Secondary panel">
             <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "outline"} aria-selected={secondaryPanelTab === "outline"} onclick={() => (secondaryPanelTab = "outline")}>Outline</button>
             <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "activity"} aria-selected={secondaryPanelTab === "activity"} onclick={() => (secondaryPanelTab = "activity")}>
@@ -2801,21 +2754,6 @@ This is a very long debug log line that demonstrates whether the debug console w
     background: var(--bg, #09090d);
   }
 
-  :global(html.glass-window),
-  :global(body.glass-window) {
-    background: transparent !important;
-  }
-
-  :global(html.opaque-window),
-  :global(body.opaque-window) {
-    background: var(--bg, #09090d) !important;
-  }
-
-  :global(html.glass-window #svelte),
-  :global(html.opaque-window #svelte) {
-    background: transparent !important;
-  }
-
   :global(#svelte) {
     position: fixed;
     inset: 0;
@@ -2867,164 +2805,6 @@ This is a very long debug log line that demonstrates whether the debug console w
     transition: color 0.2s ease;
   }
 
-  .ide.glass-window {
-    background: transparent;
-    isolation: isolate;
-  }
-
-  .ide.glass-window::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(135deg, var(--glass-sheen, rgba(255, 255, 255, 0.06)) 0%, transparent 36%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.035) 0%, transparent 22%, rgba(0, 0, 0, 0.14) 100%);
-    opacity: calc(0.42 + var(--glass-strength, 0.5) * 0.32);
-    mix-blend-mode: screen;
-  }
-
-  .ide.glass-window > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .ide.glass-window,
-  .ide:not(.glass-window) {
-    transition: background-color 360ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ide.glass-window .topbar,
-  .ide.glass-window .statusbar,
-  .ide.glass-window .tab-bar,
-  .ide.glass-window :global(.window-chrome) {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 65%),
-      var(--glass-chrome-bg);
-    backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(1.38) contrast(1.04);
-    -webkit-backdrop-filter: blur(var(--glass-blur-chrome, 20px)) saturate(1.38) contrast(1.04);
-    border-color: var(--glass-border);
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      inset 0 -1px 0 var(--glass-contrast-edge),
-      0 1px 0 rgba(255, 255, 255, 0.02);
-    transition:
-      backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 260ms cubic-bezier(0.16, 1, 0.3, 1),
-      box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ide.glass-window .workspace > :global(nav.sidebar) {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.05)), transparent 58%),
-      var(--glass-rail-bg);
-    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.32) contrast(1.03);
-    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.32) contrast(1.03);
-    border-color: var(--glass-border);
-    box-shadow:
-      inset 1px 0 0 var(--glass-highlight),
-      inset -1px 0 0 var(--glass-contrast-edge);
-    contain: paint;
-    isolation: isolate;
-    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ide.glass-window .workspace-panels .sidebar,
-  .ide.glass-window .secondary-sidebar {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 62%),
-      var(--glass-panel-bg);
-    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
-    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
-    border-color: var(--glass-border);
-    box-shadow:
-      var(--glass-shadow, none),
-      inset 0 1px 0 var(--glass-highlight),
-      inset 0 0 0 1px var(--glass-panel-ring, transparent);
-    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ide.glass-window .editor-area {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 38%),
-      var(--glass-editor-bg);
-    backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
-    -webkit-backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
-    contain: paint;
-    isolation: isolate;
-    position: relative;
-    z-index: 1;
-    transition: backdrop-filter 260ms cubic-bezier(0.16, 1, 0.3, 1), background-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ide.glass-window .welcome-center,
-  .ide.glass-window .editor-placeholder {
-    position: relative;
-    z-index: 1;
-    isolation: isolate;
-  }
-
-  .ide.glass-window .workspace > :global(nav.sidebar .row:hover) {
-    box-shadow: none;
-  }
-
-  .ide.glass-window .workspace-body,
-  .ide.glass-window .editor-content,
-  .ide.glass-window .view-pane,
-  .ide.glass-window .editor,
-  .ide.glass-window .editor-scroll,
-  .ide.glass-window .editor-surface,
-  .ide.glass-window .editor-input-wrap,
-  .ide.glass-window .editor-placeholder,
-  .ide.glass-window .line-numbers,
-  .ide.glass-window .code-textarea {
-    background: transparent;
-  }
-
-  .ide.glass-window .terminal {
-    background: color-mix(in srgb, var(--terminal-bg, var(--editor-bg)) 88%, transparent);
-    border-top-color: var(--glass-border, var(--border));
-  }
-
-  .ide.glass-window .terminal-header {
-    background: color-mix(in srgb, var(--panel) 90%, transparent);
-    border-bottom-color: var(--glass-border, var(--border));
-  }
-
-  .ide.glass-window .terminal-body {
-    background: transparent;
-  }
-
-  .ide.glass-window .command-hint,
-  .ide.glass-window .welcome-composer,
-  .ide.glass-window .welcome-card,
-  .ide.glass-window .welcome-grok-alert {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 64%),
-      var(--glass-panel-bg);
-    border-color: var(--glass-border);
-    box-shadow:
-      0 18px 50px rgba(0, 0, 0, calc(0.10 + var(--glass-strength, 0.5) * 0.16)),
-      inset 0 1px 0 var(--glass-highlight),
-      inset 0 0 0 1px var(--glass-panel-ring, transparent);
-    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.3) contrast(1.03);
-    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.3) contrast(1.03);
-  }
-
-  .ide.glass-window .composer-chip,
-  .ide.glass-window .composer-icon-btn,
-  .ide.glass-window .composer-send,
-  .ide.glass-window .workspace > :global(nav.sidebar .row.active) {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 70%),
-      color-mix(in srgb, var(--active) 78%, transparent);
-    border-color: var(--glass-border);
-    box-shadow:
-      inset 0 1px 0 var(--glass-highlight),
-      0 1px 0 rgba(255, 255, 255, 0.02);
-  }
-
   .topbar {
     display: flex;
     align-items: center;
@@ -3066,43 +2846,15 @@ This is a very long debug log line that demonstrates whether the debug console w
     border: 1px solid var(--border);
   }
 
-  .glass-debug-pill {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    z-index: 20000;
-    max-width: min(92vw, 520px);
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--chip-bg) 88%, transparent);
-    color: var(--text-mute);
-    font-size: 10px;
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    line-height: 1.35;
-    pointer-events: none;
-    backdrop-filter: blur(10px);
-    opacity: 0.9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   .context-menu {
     position: fixed;
     z-index: 30000;
     min-width: 168px;
     padding: 5px;
     border-radius: 8px;
-    border: 1px solid var(--glass-border, var(--border));
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 62%),
-      var(--glass-panel-bg, color-mix(in srgb, var(--surface-overlay) 92%, transparent));
-    box-shadow:
-      0 18px 54px rgba(0, 0, 0, 0.42),
-      inset 0 1px 0 var(--glass-highlight, rgba(255, 255, 255, 0.08));
-    backdrop-filter: blur(var(--glass-blur-panel, 28px)) saturate(1.35) contrast(1.04);
-    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 28px)) saturate(1.35) contrast(1.04);
+    border: 1px solid var(--border);
+    background: var(--surface-overlay);
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.42);
   }
 
   .context-menu button {
@@ -3163,41 +2915,6 @@ This is a very long debug log line that demonstrates whether the debug console w
     gap: 8px;
     -webkit-app-region: no-drag;
     app-region: no-drag;
-  }
-
-  .env-pills {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--chip-bg);
-  }
-
-  .env-pill {
-    min-height: 24px;
-    padding: 0 10px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-mute);
-    font: inherit;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-  }
-
-  .env-pill:hover {
-    color: var(--text);
-    background: var(--hover);
-  }
-
-  .env-pill.active {
-    color: var(--text);
-    background: var(--active);
-    box-shadow: inset 0 0 0 1px var(--border);
   }
 
   .global-search-btn {
