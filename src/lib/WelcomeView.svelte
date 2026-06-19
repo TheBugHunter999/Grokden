@@ -187,7 +187,7 @@
       <p class="grok-welcome__tagline">{WELCOME_TAGLINE}</p>
     </header>
 
-    <div class="grok-welcome__command-bar" role="search">
+    <div class="grok-welcome__command-bar liquid-glass" role="search">
       <button
         type="button"
         class="grok-welcome__command-add"
@@ -252,7 +252,7 @@
             <li>
               <button
                 type="button"
-                class="grok-welcome__workspace-row"
+                class="grok-welcome__workspace-row liquid-glass"
                 onclick={() => openWorkspace(workspace)}
               >
                 <span class="grok-welcome__workspace-icon" aria-hidden="true">

@@ -121,7 +121,7 @@
 </script>
 
 <div
-  class="window-chrome"
+  class="window-chrome liquid-glass liquid-glass-chrome"
   class:locked
   class:maximized={expanded}
   role="presentation"

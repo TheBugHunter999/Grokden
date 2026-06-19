@@ -46,7 +46,7 @@
 
 <div class="search-panel">
   <div class="search-box">
-    <div class="search-toolbar">
+    <div class="search-toolbar liquid-glass">
       <input
         bind:this={searchInput}
         class="search-input"

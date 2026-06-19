@@ -23,7 +23,7 @@
 </script>
 
 <nav
-  class="activity-rail"
+  class="activity-rail liquid-glass liquid-glass-rail"
   aria-label="Activity bar"
   class:zen-hidden={zenHidden}
 >

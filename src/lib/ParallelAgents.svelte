@@ -279,7 +279,7 @@
 </script>
 
 <div class="swarm" class:no-animations={!settings.enableAnimations}>
-  <header class="swarm-toolbar">
+  <header class="swarm-toolbar liquid-glass liquid-glass-chrome">
     <div class="swarm-title">
       <img class="swarm-logo" src="/favicon.png" alt="" width="20" height="20" />
       <div>
@@ -368,7 +368,7 @@
       {#if agents.length === 0}
         {#each Array(clampAgentCount(agentCount)) as _, i (i)}
           <div class="agent-cell empty-slot" class:span-cols={shouldSpanAgentCell(slotCount, i)}>
-            <div class="cell-head">
+            <div class="cell-head liquid-glass">
               <span class="cell-index">{i + 1}</span>
               <span class="cell-title">Agent {i + 1}</span>
               <span class="cell-status muted">Not started</span>
@@ -388,7 +388,7 @@
             class:done={agent.status === "done"}
             class:span-cols={shouldSpanAgentCell(slotCount, i)}
           >
-            <div class="cell-head">
+            <div class="cell-head liquid-glass">
               <span class="cell-pip" class:live={agent.status === "running" || agent.status === "launching"}></span>
               <div class="cell-head-main">
                 <span class="cell-title" title={agent.label}>{agent.label}</span>
@@ -440,7 +440,7 @@
     {/if}
 
     <aside class="mission-board" class:open={!compactLayout || goalsPanelOpen}>
-      <div class="board-head">
+      <div class="board-head liquid-glass">
         <h3>Mission Board</h3>
         <span class="board-count">{goals.length} goals</span>
       </div>

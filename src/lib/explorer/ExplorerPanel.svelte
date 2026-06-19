@@ -46,7 +46,7 @@
 </script>
 
 <div class="explorer-panel">
-  <div class="sidebar-header">
+  <div class="sidebar-header liquid-glass">
     <span>Explorer</span>
     <button type="button" class="open-folder-btn" onclick={onOpenFolder} title="Open folder">…</button>
   </div>

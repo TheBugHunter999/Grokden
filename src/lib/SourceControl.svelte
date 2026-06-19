@@ -52,7 +52,7 @@
   {#if gitBlame}<span class="scm-flag">Blame</span>{/if}
 </div>
 
-<div class="scm-header">
+<div class="scm-header liquid-glass">
   <span class="scm-count">{changes.length} change{changes.length === 1 ? "" : "s"}</span>
   <div class="scm-actions">
     <button type="button" class="scm-btn" disabled={!changes.length} onclick={onSaveAll}>Save All</button>

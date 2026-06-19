@@ -1975,7 +1975,7 @@
     {#if !settings.zenMode}
       <aside class="sidebar">
         {#if activePanel !== "explorer"}
-          <div class="sidebar-header">
+          <div class="sidebar-header liquid-glass">
             <span>{activePanel === "search" ? "Search" : "Source Control"}</span>
           </div>
         {/if}
@@ -2311,8 +2311,15 @@
     </main>
 
     {#if secondarySidebarOpen && !settings.zenMode}
-      <aside class="secondary-sidebar" transition:slide={settings.enableAnimations ? slideX : { duration: 0 }}>
-        <div class="secondary-header">
+      <aside
+        class="secondary-sidebar"
+        transition:slide={settings.enableAnimations ? slideX : { duration: 0 }}
+        onintrostart={() => document.documentElement.classList.add("panel-animating")}
+        onoutrostart={() => document.documentElement.classList.add("panel-animating")}
+        onintroend={() => document.documentElement.classList.remove("panel-animating")}
+        onoutroend={() => document.documentElement.classList.remove("panel-animating")}
+      >
+        <div class="secondary-header liquid-glass">
           <div class="secondary-tabs" role="tablist" aria-label="Secondary panel">
             <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "outline"} aria-selected={secondaryPanelTab === "outline"} onclick={() => (secondaryPanelTab = "outline")}>Outline</button>
             <button type="button" role="tab" class="secondary-tab" class:active={secondaryPanelTab === "activity"} aria-selected={secondaryPanelTab === "activity"} onclick={() => (secondaryPanelTab = "activity")}>
@@ -2364,7 +2371,7 @@
           aria-label="Resize terminal"
           onmousedown={startTerminalResize}
         ></button>
-        <div class="terminal-header">
+        <div class="terminal-header liquid-glass">
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "terminal"} onclick={() => selectBottomPanelTab("terminal")}>Terminal</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "output"} onclick={() => selectBottomPanelTab("output")}>Output</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "problems"} onclick={() => selectBottomPanelTab("problems")}>
