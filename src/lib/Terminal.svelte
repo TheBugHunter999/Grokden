@@ -99,6 +99,8 @@
   }
 
   function terminalSurfaceBg(el: HTMLElement): string {
+    const terminalBg = cssVar(el, "--terminal-bg", "");
+    if (terminalBg) return terminalBg;
     const glass = cssVar(el, "--glass-editor-bg", "");
     if (glass) return "transparent";
     return cssVar(el, "--editor-bg", cssVar(el, "--bg", "#09090d"));
@@ -770,7 +772,7 @@
     min-width: 0;
     overflow: hidden;
     padding: 6px 8px;
-    border-top: 1px solid var(--border);
+    background: transparent;
     box-sizing: border-box;
   }
 

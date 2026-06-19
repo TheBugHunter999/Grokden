@@ -2539,14 +2539,18 @@
           aria-label="Resize terminal"
           onmousedown={startTerminalResize}
         ></button>
-        <div class="terminal-header glass">
+        <div class="terminal-header">
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "terminal"} onclick={() => selectBottomPanelTab("terminal")}>Terminal</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "output"} onclick={() => selectBottomPanelTab("output")}>Output</button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "problems"} onclick={() => selectBottomPanelTab("problems")}>
             Problems{#if workspaceLintIssues.length > 0}<span class="tab-count">{workspaceLintIssues.length}</span>{/if}
           </button>
           <button type="button" class="terminal-tab" class:active={bottomPanelTab === "debug"} onclick={() => selectBottomPanelTab("debug")}>Debug</button>
-          <button type="button" class="terminal-close" aria-label="Hide terminal" onclick={() => setUserTerminalOpen(false)}>Close</button>
+          <button type="button" class="terminal-close" aria-label="Hide terminal" title="Close panel" onclick={() => setUserTerminalOpen(false)}>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4 4l8 8M12 4L4 12" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" />
+            </svg>
+          </button>
         </div>
         <div class="terminal-body">
           <div
@@ -2979,26 +2983,17 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .ide.glass-window .terminal {
-    background: transparent;
-    border-color: var(--glass-border);
+    background: color-mix(in srgb, var(--terminal-bg, var(--editor-bg)) 88%, transparent);
+    border-top-color: var(--glass-border, var(--border));
   }
 
   .ide.glass-window .terminal-header {
-    background:
-      linear-gradient(180deg, var(--glass-sheen, rgba(255, 255, 255, 0.04)), transparent 64%),
-      var(--glass-panel-bg);
-    backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
-    -webkit-backdrop-filter: blur(var(--glass-blur-panel, 20px)) saturate(1.34) contrast(1.04);
-    border-color: var(--glass-border);
-    box-shadow: inset 0 1px 0 var(--glass-highlight);
+    background: color-mix(in srgb, var(--panel) 90%, transparent);
+    border-bottom-color: var(--glass-border, var(--border));
   }
 
   .ide.glass-window .terminal-body {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 40%),
-      var(--glass-editor-bg);
-    backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
-    -webkit-backdrop-filter: blur(var(--glass-blur-editor, 16px)) saturate(1.24) contrast(1.02);
+    background: transparent;
   }
 
   .ide.glass-window .command-hint,
@@ -4170,7 +4165,11 @@ This is a very long debug log line that demonstrates whether the debug console w
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    background: var(--editor-bg);
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--terminal-bg, var(--editor-bg));
     border-top: 1px solid var(--border);
     min-height: 0;
     min-width: 0;
@@ -4275,30 +4274,37 @@ This is a very long debug log line that demonstrates whether the debug console w
   .terminal-header {
     display: flex;
     align-items: center;
-    height: 28px;
-    padding: 0 2px;
+    gap: 2px;
+    height: 34px;
+    padding: 0 8px;
     background: var(--panel);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     min-width: 0;
     overflow-x: auto;
-    overflow-x: auto;
   }
   .terminal-tab {
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 10px;
     height: 100%;
-    font-size: 11px;
-    color: var(--text-mute);
-    background: none;
+    font-size: 12px;
+    color: var(--text-dim);
+    background: transparent;
     border: none;
+    border-radius: var(--radius-sm, 6px);
     font-family: inherit;
     cursor: pointer;
-    transition: color 0.12s;
+    transition: background 0.12s ease, color 0.12s ease;
   }
-  .terminal-tab:hover { color: var(--text-dim); }
-  .terminal-tab.active { color: var(--text); border-bottom: 2px solid var(--accent); margin-bottom: -1px; }
+  .terminal-tab:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+  .terminal-tab.active {
+    color: var(--text);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
   .tab-count {
     margin-left: 6px;
     padding: 0 5px;
@@ -4395,18 +4401,28 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
   .terminal-close {
     margin-left: auto;
-    margin-right: 8px;
-    padding: 2px 8px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
     border: none;
-    background: none;
+    background: transparent;
     color: var(--text-mute);
-    font-size: 11px;
-    font-family: inherit;
-    border-radius: 4px;
+    border-radius: var(--radius-sm, 6px);
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, color 0.12s ease;
   }
-  .terminal-close:hover { background: var(--hover); color: var(--text); }
+  .terminal-close svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+  }
+  .terminal-close:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
   .terminal-body {
     flex: 1;
     min-height: 0;

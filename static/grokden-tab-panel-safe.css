@@ -164,23 +164,6 @@
   background: currentColor !important;
 }
 
-.ide .terminal,
-.ide.glass-window .terminal {
-  transition: height 220ms cubic-bezier(0.16,1,0.3,1), max-height 220ms cubic-bezier(0.16,1,0.3,1), opacity 150ms ease, transform 220ms cubic-bezier(0.16,1,0.3,1) !important;
-}
-
-.ide.grokden-panel-safe-hidden .terminal {
-  display: flex !important;
-  height: 0 !important;
-  max-height: 0 !important;
-  min-height: 0 !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-  transform: translateY(8px) !important;
-  border-top-color: transparent !important;
-}
-
 .grokden-menu-list {
   transition: opacity 100ms ease, transform 120ms cubic-bezier(0.16,1,0.3,1) !important;
 }
