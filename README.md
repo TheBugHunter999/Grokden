@@ -2,12 +2,6 @@
 
 Grokden is a desktop workspace for people who work with the Grok command-line tool. It combines a folder-based file explorer, a simple text editor, an integrated terminal, and a parallel agent view where you can run several Grok sessions at once in separate panes. The application is built with Tauri, Svelte, and TypeScript. It runs locally on your machine. Your project files and settings stay on your computer unless you choose to share them elsewhere.
 
-## Screenshots
-
-![Grokden welcome screen — command bar, quick actions, agent presets, and theme previews](docs/screenshots/welcome-screen.jpg)
-
-The welcome screen is the starting point for a new session. From here you can open a folder, run commands from the central command bar, launch agents or the terminal, and preview themes. The slim activity rail on the left keeps explorer, search, source control, canvas, and settings one click away.
-
 ## Who should use Grokden
 
 Grokden is intended for developers, technical writers, researchers, and power users who already use or plan to use the official Grok CLI from xAI. If you want a single desktop window where you can open a repository, edit files, run shell commands, and launch multiple Grok agents side by side without switching between separate terminal windows, this application is for you.
