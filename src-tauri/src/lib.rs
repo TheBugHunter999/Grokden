@@ -626,6 +626,13 @@ pub fn run() {
                 let _ = main.set_background_color(Some(Color::from((9_u8, 9, 13, 255))));
                 let _ = main.show();
                 let _ = main.set_focus();
+                #[cfg(debug_assertions)]
+                {
+                    eprintln!("[Grokden:Debug] Development diagnostics enabled.");
+                    eprintln!("[Grokden:Debug] DevTools is opening automatically. Filter Console by 'Grokden:Terminal'.");
+                    eprintln!("[Grokden:Debug] Copy the structured renderer report with: await window.__GROKDEN_TERMINAL_DEBUG__.copy()");
+                    main.open_devtools();
+                }
             }
             Ok(())
         })

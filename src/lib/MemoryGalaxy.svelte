@@ -53,6 +53,7 @@
   let connectFromId = $state<string | null>(null);
   let showPlanetSpawner = $state(false);
   let planetNotice = $state("");
+  let expandedImage = $state<{ name: string; dataUrl: string } | null>(null);
   let persistTimer: ReturnType<typeof setTimeout> | undefined;
   let planetDraft = $state({ name: "New world", type: "Project Memory", color: "#55aadd", radius: 105, hasRing: true });
 
@@ -1511,6 +1512,8 @@
   });
 </script>
 
+<svelte:window onkeydown={(event) => { if (event.key === "Escape") expandedImage = null; }} />
+
 <div class="mg-root">
   <!-- Left Panels -->
   <div class="mg-left">
@@ -1674,8 +1677,10 @@
             <div class="mg-image-grid">
               {#each selectedPlanet.images as image (image.id)}
                 <figure style:--image-ratio={image.aspectRatio}>
-                  <img src={image.dataUrl} alt={image.name} />
-                  <button aria-label={`Remove ${image.name}`} onclick={() => removePlanetImage(selectedPlanet!.id, image.id)}>×</button>
+                  <button class="mg-image-open" aria-label={`Open ${image.name} at full size`} onclick={() => (expandedImage = image)}>
+                    <img src={image.dataUrl} alt={image.name} />
+                  </button>
+                  <button class="mg-image-remove" aria-label={`Remove ${image.name}`} onclick={() => removePlanetImage(selectedPlanet!.id, image.id)}>×</button>
                   <figcaption title={image.name}>{image.name}</figcaption>
                 </figure>
               {/each}
@@ -1719,6 +1724,21 @@
       {/each}
     </div>
   </div>
+
+  {#if expandedImage}
+    <div class="mg-image-viewer" role="dialog" tabindex="-1" aria-modal="true" aria-label={`Image preview: ${expandedImage.name}`} onclick={() => (expandedImage = null)} onkeydown={(event) => { if (event.key === "Escape") expandedImage = null; }}>
+      <div class="mg-image-viewer__window" role="document" tabindex="-1" onclick={(event) => event.stopPropagation()} onkeydown={(event) => event.stopPropagation()}>
+        <header>
+          <div><span>PLANET ASSET</span><strong>{expandedImage.name}</strong></div>
+          <button type="button" aria-label="Close image preview" onclick={() => (expandedImage = null)}>×</button>
+        </header>
+        <div class="mg-image-viewer__stage">
+          <img src={expandedImage.dataUrl} alt={expandedImage.name} />
+        </div>
+        <footer>Original proportions preserved · fit to window</footer>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1872,11 +1892,26 @@
   .mg-journal:focus { border-color: rgba(120,155,230,.35); }
   .mg-image-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
   .mg-image-grid figure { position: relative; min-width: 0; margin: 0; overflow: hidden; border: 1px solid rgba(120,140,210,.12); border-radius: 7px; background: #030408; }
-  .mg-image-grid img { display: block; width: 100%; height: 88px; object-fit: contain; background: radial-gradient(circle at center, rgba(100,125,190,.09), transparent 70%); }
+  .mg-image-open { display: block; width: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+  .mg-image-grid img { display: block; width: 100%; height: 88px; object-fit: contain; background: radial-gradient(circle at center, rgba(100,125,190,.09), transparent 70%); transition: transform 180ms ease, filter 180ms ease; }
+  .mg-image-open:hover img { transform: scale(1.025); filter: brightness(1.08); }
   .mg-image-grid figcaption { padding: 5px 6px; overflow: hidden; color: rgba(190,196,220,.48); font: 500 7px/1 "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
-  .mg-image-grid figure button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; background: rgba(3,4,8,.76); color: rgba(230,232,242,.65); cursor: pointer; }
-  .mg-image-grid figure button:hover { color: #fff; background: rgba(160,50,65,.55); }
+  .mg-image-grid figure .mg-image-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 5px; background: rgba(3,4,8,.76); color: rgba(230,232,242,.65); cursor: pointer; }
+  .mg-image-grid figure .mg-image-remove:hover { color: #fff; background: rgba(160,50,65,.55); }
   .mg-image-empty { padding: 9px; border: 1px dashed rgba(120,140,210,.13); border-radius: 7px; color: rgba(150,158,190,.4); font-size: 8px; line-height: 1.45; text-align: center; }
+
+  .mg-image-viewer { position: absolute; inset: 0; z-index: 80; display: grid; place-items: center; padding: clamp(16px, 4vw, 54px); background: rgba(1,2,5,.76); backdrop-filter: blur(18px) saturate(.9); animation: mg-viewer-in 180ms ease-out; }
+  .mg-image-viewer__window { display: grid; grid-template-rows: auto minmax(0,1fr) auto; width: min(1120px, 94vw); height: min(780px, 86vh); overflow: hidden; border: 1px solid rgba(180,205,245,.24); border-radius: 14px; background: rgba(7,10,16,.96); box-shadow: 0 36px 110px rgba(0,0,0,.72), inset 0 1px rgba(255,255,255,.055); }
+  .mg-image-viewer__window header { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-width: 0; padding: 12px 14px; border-bottom: 1px solid rgba(180,205,245,.12); background: rgba(18,23,34,.82); }
+  .mg-image-viewer__window header > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+  .mg-image-viewer__window header span { color: rgba(148,177,224,.66); font: 600 7px/1 "JetBrains Mono", monospace; letter-spacing: .17em; }
+  .mg-image-viewer__window header strong { overflow: hidden; color: #edf2fb; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .mg-image-viewer__window header button { width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: rgba(220,226,240,.58); font-size: 20px; cursor: pointer; }
+  .mg-image-viewer__window header button:hover { color: #fff; background: rgba(255,255,255,.07); }
+  .mg-image-viewer__stage { display: grid; min-width: 0; min-height: 0; place-items: center; overflow: hidden; padding: 18px; background: radial-gradient(circle at 50% 42%, rgba(67,88,126,.15), transparent 58%), #020307; }
+  .mg-image-viewer__stage img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 18px 50px rgba(0,0,0,.4)); }
+  .mg-image-viewer__window footer { padding: 9px 14px; border-top: 1px solid rgba(180,205,245,.09); color: rgba(170,181,204,.48); font: 500 8px/1 "JetBrains Mono", monospace; }
+  @keyframes mg-viewer-in { from { opacity: 0; } to { opacity: 1; } }
 
   /* Bottom */
   .mg-bottom { display: flex; flex-direction: column; gap: 0; }

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { debugControlPreview, terminalBridgeDebug } from "$lib/terminal-debug";
 
 export type TerminalId = number;
 
@@ -40,6 +41,14 @@ const terminalCloseHandlers = new Set<TerminalCloseHandler>();
 let outputListener: Promise<UnlistenFn> | null = null;
 
 function deliverOutput(id: TerminalId, data: string) {
+  terminalBridgeDebug("output:deliver", {
+    id,
+    chars: data.length,
+    preview: debugControlPreview(data),
+    taps: outputTaps.get(id)?.size ?? 0,
+    hasHandler: outputHandlers.has(id),
+    bufferedChunks: outputBuffers.get(id)?.length ?? 0,
+  });
   const taps = outputTaps.get(id);
   if (taps) {
     for (const tap of taps) {
@@ -53,6 +62,7 @@ function deliverOutput(id: TerminalId, data: string) {
 
   const handler = outputHandlers.get(id);
   if (handler) {
+    terminalBridgeDebug("output:to-handler", { id, chars: data.length });
     handler(data);
     return;
   }
@@ -63,6 +73,7 @@ function deliverOutput(id: TerminalId, data: string) {
     buffer.splice(0, buffer.length - OUTPUT_BUFFER_LIMIT);
   }
   outputBuffers.set(id, buffer);
+  terminalBridgeDebug("output:buffered", { id, bufferedChunks: buffer.length });
 }
 
 function notifyTerminalClosed(id: TerminalId): void {
@@ -77,11 +88,18 @@ function notifyTerminalClosed(id: TerminalId): void {
 
 async function ensureOutputListener(): Promise<void> {
   if (!outputListener) {
+    terminalBridgeDebug("listener:create");
     outputListener = listen<TerminalOutputEvent>("terminal-output", (event) => {
+      terminalBridgeDebug("listener:event", {
+        id: event.payload.id,
+        chars: event.payload.data.length,
+        preview: debugControlPreview(event.payload.data),
+      });
       deliverOutput(event.payload.id, event.payload.data);
     });
   }
   await outputListener;
+  terminalBridgeDebug("listener:ready");
 }
 
 export function registerTerminalOutput(
@@ -89,6 +107,10 @@ export function registerTerminalOutput(
   handler: TerminalOutputHandler,
 ): () => void {
   outputHandlers.set(id, handler);
+  terminalBridgeDebug("handler:register", {
+    id,
+    bufferedChunks: outputBuffers.get(id)?.length ?? 0,
+  });
 
   const buffered = outputBuffers.get(id);
   if (buffered?.length) {
@@ -101,6 +123,7 @@ export function registerTerminalOutput(
   void ensureOutputListener();
 
   return () => {
+    terminalBridgeDebug("handler:unregister", { id });
     outputHandlers.delete(id);
     outputBuffers.delete(id);
   };
@@ -135,34 +158,47 @@ export function registerTerminalCloseHandler(handler: TerminalCloseHandler): () 
 }
 
 export async function spawnTerminal(options: TerminalSpawnOptions): Promise<TerminalId> {
+  terminalBridgeDebug("invoke:spawn-request", options);
   await ensureOutputListener();
-  return invoke<TerminalId>("terminal_spawn", {
+  const id = await invoke<TerminalId>("terminal_spawn", {
     shell: options.shell,
     cwd: options.cwd,
   });
+  terminalBridgeDebug("invoke:spawn-complete", { id });
+  return id;
 }
 
 export async function writeTerminal(options: TerminalWriteOptions): Promise<void> {
+  terminalBridgeDebug("invoke:write-request", {
+    id: options.id,
+    chars: options.data.length,
+    preview: debugControlPreview(options.data),
+  });
   await invoke("terminal_write", {
     id: options.id,
     data: options.data,
   });
+  terminalBridgeDebug("invoke:write-complete", { id: options.id, chars: options.data.length });
 }
 
 export async function resizeTerminal(options: TerminalResizeOptions): Promise<void> {
+  terminalBridgeDebug("invoke:resize-request", options);
   await invoke("terminal_resize", {
     id: options.id,
     cols: options.cols,
     rows: options.rows,
   });
+  terminalBridgeDebug("invoke:resize-complete", options);
 }
 
 export async function closeTerminal(options: TerminalCloseOptions): Promise<void> {
+  terminalBridgeDebug("invoke:close-request", options);
   try {
     await invoke("terminal_close", {
       id: options.id,
     });
   } finally {
+    terminalBridgeDebug("invoke:close-finally", options);
     outputHandlers.delete(options.id);
     outputTaps.delete(options.id);
     outputBuffers.delete(options.id);

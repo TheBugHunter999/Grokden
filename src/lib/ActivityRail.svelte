@@ -291,7 +291,9 @@
     z-index: 2;
     contain: paint;
     isolation: isolate;
-    transition: width 180ms ease, flex-basis 180ms ease;
+    transition:
+      width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      flex-basis 320ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .sidebar.collapsed {

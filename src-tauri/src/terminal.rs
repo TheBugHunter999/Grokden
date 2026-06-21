@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
@@ -14,6 +14,46 @@ use tauri::{AppHandle, Emitter, State};
 const DEFAULT_COLS: u16 = 80;
 const DEFAULT_ROWS: u16 = 24;
 const READ_BUFFER_SIZE: usize = 4096;
+
+#[cfg(debug_assertions)]
+macro_rules! pty_debug {
+    ($($arg:tt)*) => {
+        eprintln!("[Grokden:PTY] {}", format_args!($($arg)*))
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! pty_debug {
+    ($($arg:tt)*) => {};
+}
+
+#[cfg(debug_assertions)]
+fn debug_text_preview(value: &str) -> String {
+    let mut visible = String::new();
+    for character in value.chars() {
+        match character {
+            '\u{1b}' => visible.push_str("<ESC>"),
+            '\r' => visible.push_str("<CR>"),
+            '\n' => visible.push_str("<LF>"),
+            '\t' => visible.push_str("<TAB>"),
+            value if value.is_control() => {
+                visible.push_str(&format!("<0x{:02X}>", value as u32));
+            }
+            value => visible.push(value),
+        }
+    }
+    let mut chars = visible.chars();
+    let preview: String = chars.by_ref().take(260).collect();
+    if chars.next().is_some() {
+        format!("{preview}...")
+    } else {
+        preview
+    }
+}
+
+fn should_debug_stream_chunk(index: u64, chars: usize) -> bool {
+    index <= 48 || index % 100 == 0 || chars > 96
+}
 
 #[derive(Clone, Serialize)]
 struct TerminalOutputEvent {
@@ -156,7 +196,9 @@ fn remove_session(
     sessions: &Arc<Mutex<HashMap<u32, TerminalSession>>>,
 ) {
     alive.store(false, Ordering::Relaxed);
-    if let Some(session) = sessions.lock().remove(&id) {
+    let removed = sessions.lock().remove(&id);
+    pty_debug!("session remove id={id} existed={}", removed.is_some());
+    if let Some(session) = removed {
         let mut killer = session.killer;
         cleanup_spawned_child(&mut killer);
     }
@@ -171,8 +213,10 @@ fn spawn_child_watcher(
     sessions: Arc<Mutex<HashMap<u32, TerminalSession>>>,
 ) {
     std::thread::spawn(move || {
+        pty_debug!("watcher start id={id}");
         loop {
             if !alive.load(Ordering::Relaxed) {
+                pty_debug!("watcher stop id={id} reason=not-alive");
                 return;
             }
 
@@ -185,6 +229,7 @@ fn spawn_child_watcher(
             };
 
             if exited {
+                pty_debug!("watcher observed exit id={id}");
                 remove_session(id, &alive, &sessions);
                 return;
             }
@@ -202,31 +247,57 @@ fn spawn_reader_thread(
     sessions: Arc<Mutex<HashMap<u32, TerminalSession>>>,
 ) {
     std::thread::spawn(move || {
+        pty_debug!("reader start id={id} callback={}", on_output.is_some());
         let mut buffer = [0u8; READ_BUFFER_SIZE];
         let mut decoder = Utf8StreamDecoder::new();
+        let mut chunk_index: u64 = 0;
+        let mut total_bytes: u64 = 0;
 
         while alive.load(Ordering::Relaxed) {
             match reader.read(&mut buffer) {
-                Ok(0) => break,
+                Ok(0) => {
+                    pty_debug!("reader eof id={id} chunks={chunk_index} bytes={total_bytes}");
+                    break;
+                }
                 Ok(count) => {
+                    chunk_index += 1;
+                    total_bytes += count as u64;
                     let data = decoder.push(&buffer[..count]);
+                    if should_debug_stream_chunk(chunk_index, data.len()) {
+                        pty_debug!(
+                            "reader chunk id={id} index={chunk_index} raw_bytes={count} decoded_chars={} preview={}",
+                            data.len(),
+                            debug_text_preview(&data)
+                        );
+                    }
                     if !data.is_empty() {
                         if let Some(on_output) = on_output.as_ref() {
                             on_output(id, data);
+                        } else {
+                            pty_debug!("reader drop id={id} reason=no-output-callback");
                         }
                     }
                 }
-                Err(_) => break,
+                Err(error) => {
+                    pty_debug!("reader error id={id} error={error}");
+                    break;
+                }
             }
         }
 
         let tail = decoder.flush();
         if !tail.is_empty() {
+            pty_debug!(
+                "reader tail id={id} chars={} preview={}",
+                tail.len(),
+                debug_text_preview(&tail)
+            );
             if let Some(on_output) = on_output.as_ref() {
                 on_output(id, tail);
             }
         }
 
+        pty_debug!("reader cleanup id={id} chunks={chunk_index} bytes={total_bytes}");
         remove_session(id, &alive, &sessions);
     });
 }
@@ -239,6 +310,13 @@ fn spawn_terminal_session(
     on_output: Option<OutputCallback>,
 ) -> Result<u32, String> {
     let shell_path = resolve_shell(shell);
+    pty_debug!(
+        "spawn request shell={} args={:?} cwd={:?} callback={}",
+        shell_path,
+        shell_args.as_ref(),
+        cwd.as_ref(),
+        on_output.is_some()
+    );
 
     if let Some(ref dir) = cwd {
         let path = Path::new(dir);
@@ -256,6 +334,7 @@ fn spawn_terminal_session(
             pixel_height: 0,
         })
         .map_err(|error| format!("Failed to open PTY: {error}"))?;
+    pty_debug!("spawn pty-opened shell={shell_path} cols={DEFAULT_COLS} rows={DEFAULT_ROWS}");
 
     let mut command = CommandBuilder::new(&shell_path);
     if let Some(args) = shell_args {
@@ -273,6 +352,7 @@ fn spawn_terminal_session(
         .slave
         .spawn_command(command)
         .map_err(|error| format!("Failed to spawn shell '{shell_path}': {error}"))?;
+    pty_debug!("spawn child-created shell={shell_path}");
 
     let mut killer = child.clone_killer();
 
@@ -283,6 +363,7 @@ fn spawn_terminal_session(
             return Err(format!("Failed to clone PTY reader: {error}"));
         }
     };
+    pty_debug!("spawn reader-ready shell={shell_path}");
 
     let writer = match pair.master.take_writer() {
         Ok(writer) => writer,
@@ -291,10 +372,27 @@ fn spawn_terminal_session(
             return Err(format!("Failed to open PTY writer: {error}"));
         }
     };
+    pty_debug!("spawn writer-ready shell={shell_path}");
 
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
     let alive = Arc::new(AtomicBool::new(true));
     let child = Arc::new(Mutex::new(child));
+
+    let session = TerminalSession {
+        _slave: pair.slave,
+        master: pair.master,
+        writer: Mutex::new(writer),
+        child: Arc::clone(&child),
+        killer,
+        alive: Arc::clone(&alive),
+    };
+
+    // Publish the session before either worker can observe process output or
+    // process exit. Fast-starting shells (notably PowerShell on Windows) can
+    // otherwise race the insertion and leave a stale, unwritable session in
+    // the map after the reader removes an ID that was not present yet.
+    state.sessions.lock().insert(id, session);
+    pty_debug!("spawn session-published id={id} shell={shell_path}");
 
     spawn_reader_thread(
         id,
@@ -310,17 +408,7 @@ fn spawn_terminal_session(
         Arc::clone(&state.sessions),
     );
 
-    let session = TerminalSession {
-        _slave: pair.slave,
-        master: pair.master,
-        writer: Mutex::new(writer),
-        child,
-        killer,
-        alive,
-    };
-
-    state.sessions.lock().insert(id, session);
-
+    pty_debug!("spawn complete id={id} shell={shell_path}");
     Ok(id)
 }
 
@@ -332,13 +420,34 @@ pub fn terminal_spawn(
     app_handle: AppHandle,
 ) -> Result<u32, String> {
     let app_handle = app_handle.clone();
+    let emit_index = AtomicU64::new(0);
     let on_output: OutputCallback = Arc::new(move |id, data| {
-        let _ = app_handle.emit("terminal-output", TerminalOutputEvent { id, data });
+        let chars = data.len();
+        let index = emit_index.fetch_add(1, Ordering::Relaxed) + 1;
+        let should_log = should_debug_stream_chunk(index, chars);
+        if should_log {
+            pty_debug!(
+                "emit request id={id} index={index} chars={chars} preview={}",
+                debug_text_preview(&data)
+            );
+        }
+        match app_handle.emit("terminal-output", TerminalOutputEvent { id, data }) {
+            Ok(()) if should_log => {
+                pty_debug!("emit complete id={id} index={index} chars={chars}")
+            }
+            Ok(()) => {}
+            Err(error) => pty_debug!("emit error id={id} chars={chars} error={error}"),
+        }
     });
     spawn_terminal_session(shell, None, cwd, state.inner(), Some(on_output))
 }
 
 fn write_terminal_session(id: u32, data: String, state: &TerminalState) -> Result<(), String> {
+    pty_debug!(
+        "write request id={id} chars={} preview={}",
+        data.len(),
+        debug_text_preview(&data)
+    );
     let sessions = state.sessions.lock();
     let session = sessions
         .get(&id)
@@ -356,6 +465,7 @@ fn write_terminal_session(id: u32, data: String, state: &TerminalState) -> Resul
         .flush()
         .map_err(|error| format!("Failed to flush terminal {id}: {error}"))?;
 
+    pty_debug!("write complete id={id} chars={}", data.len());
     Ok(())
 }
 
@@ -365,6 +475,7 @@ pub fn terminal_write(id: u32, data: String, state: State<'_, TerminalState>) ->
 }
 
 fn resize_terminal_session(id: u32, cols: u32, rows: u32, state: &TerminalState) -> Result<(), String> {
+    pty_debug!("resize request id={id} cols={cols} rows={rows}");
     let sessions = state.sessions.lock();
     let session = sessions
         .get(&id)
@@ -387,6 +498,7 @@ fn resize_terminal_session(id: u32, cols: u32, rows: u32, state: &TerminalState)
         })
         .map_err(|error| format!("Failed to resize terminal {id}: {error}"))?;
 
+    pty_debug!("resize complete id={id} cols={cols} rows={rows}");
     Ok(())
 }
 
@@ -401,6 +513,7 @@ pub fn terminal_resize(
 }
 
 fn close_terminal_session(id: u32, state: &TerminalState) -> Result<(), String> {
+    pty_debug!("close request id={id}");
     let session = {
         let mut sessions = state.sessions.lock();
         sessions
@@ -415,6 +528,7 @@ fn close_terminal_session(id: u32, state: &TerminalState) -> Result<(), String> 
     cleanup_spawned_child(&mut killer);
 
     // Dropping writer/master/slave sends EOF and tears down the PTY.
+    pty_debug!("close complete id={id}");
     Ok(())
 }
 
@@ -524,6 +638,28 @@ mod tests {
         write_terminal_session(id, "echo Grokden\r\n".into(), &state).expect("write");
         close_terminal_session(id, &state).expect("close");
         assert!(close_terminal_session(id, &state).is_err());
+    }
+
+    #[test]
+    fn terminal_emits_output_after_interactive_write() {
+        let state = TerminalState::new();
+        let output = Arc::new(Mutex::new(String::new()));
+        let captured = Arc::clone(&output);
+        let on_output: OutputCallback = Arc::new(move |_id, data| {
+            captured.lock().push_str(&data);
+        });
+
+        let id = spawn_terminal_session(None, None, None, &state, Some(on_output))
+            .expect("spawn interactive session");
+        write_terminal_session(id, "echo GROKDEN_PTY_READY\r\n".into(), &state)
+            .expect("write command");
+
+        let received = wait_until(
+            || output.lock().contains("GROKDEN_PTY_READY"),
+            Duration::from_secs(5),
+        );
+        assert!(received, "interactive terminal output should reach the registered callback");
+        close_terminal_session(id, &state).expect("close session");
     }
 
     #[test]

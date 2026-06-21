@@ -538,9 +538,32 @@ export function truncateTabTitle(name: string, maxLen = 28): string {
   return middleTruncate(name, maxLen);
 }
 
+function resolvedAccent(settings: AppSettings): AccentPalette {
+  const theme = THEMES[settings.theme] ?? THEMES.codex;
+  if (settings.theme === "premium-grok" || settings.theme === "midnight") {
+    return {
+      default: theme.accent,
+      strong: theme.accentHover,
+      muted: theme.accentMuted,
+      subtle: theme.textDim,
+      onAccent: theme.onAccent,
+    };
+  }
+  if (settings.theme === "frost") {
+    return {
+      default: theme.accent,
+      strong: theme.accentHover,
+      muted: theme.accentMuted,
+      subtle: theme.textDim,
+      onAccent: theme.onAccent,
+    };
+  }
+  return ACCENTS[settings.accent] ?? ACCENTS.violet;
+}
+
 export function buildThemeStyle(settings: AppSettings): string {
   const t = THEMES[settings.theme] ?? THEMES["codex"];
-  const accent = ACCENTS[settings.accent] ?? ACCENTS.violet;
+  const accent = resolvedAccent(settings);
   const isLight = t.isLight ?? false;
   const accentSoft = hexToRgba(accent.default, isLight ? 0.12 : 0.18);
   const fontSize = settings.fontSize;
@@ -678,7 +701,7 @@ export function buildThemeStyle(settings: AppSettings): string {
 /** Editor-scoped --grok-* vars and runtime layout tokens (Section 4.3 + 7). */
 export function buildEditorStyleVars(settings: AppSettings): string {
   const t = THEMES[settings.theme] ?? THEMES["codex"];
-  const accent = ACCENTS[settings.accent] ?? ACCENTS.violet;
+  const accent = resolvedAccent(settings);
   const fontSize = settings.fontSize;
   const codeFont = FONT_STACKS[settings.fontFamily] ?? FONT_STACKS.jetbrains;
   const tabSpace = settings.insertSpaces ? clamp(settings.tabSize, 1, 8) : 4;

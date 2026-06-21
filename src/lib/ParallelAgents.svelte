@@ -90,7 +90,13 @@
     agentTerminalIds = { ...agentTerminalIds, [agentId]: terminalId };
     const session = createActivitySession(label, terminalId);
     agentDetachFns = { ...agentDetachFns, [agentId]: attachParser(session.id, terminalId) };
-    markAgentRunning(agentId);
+  }
+
+  function markAgentError(agentId: string) {
+    agents = agents.map((agent) =>
+      agent.id === agentId ? { ...agent, status: "error" as const } : agent,
+    );
+    if (!agents.some((agent) => agent.status === "launching")) launching = false;
   }
 
   function cleanupAgentActivity(agentId: string) {
@@ -456,6 +462,8 @@
                     injectCommand={agent.model ? buildAgentSpecificGrokCommand(settings, agent) : (grokCommand || buildAgentGrokCommand(settings))}
                     injectPrompt={buildAgentInjectPrompt(agent, goals)}
                     onSpawned={(tid) => handleAgentSpawned(agent.id, agent.label, tid)}
+                    onReady={() => markAgentRunning(agent.id)}
+                    onError={() => markAgentError(agent.id)}
                   />
               {:else}
                 <div class="cell-idle">Press Launch or R to start this agent</div>

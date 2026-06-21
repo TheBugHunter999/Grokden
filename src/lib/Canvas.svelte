@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type CanvasNodeType = "agent" | "mission" | "file" | "note";
+  export type CanvasNodeType = "agent" | "mission" | "file" | "note" | "terminal";
   export type CanvasTool = "select" | "pan" | "connect";
 
   export type CanvasNode = {
@@ -34,19 +34,28 @@
     worktreeIsolation: boolean;
     upstreamRoles: string[];
   };
+
+  export type CanvasPreparedAgent = CanvasAgentLaunchSpec & {
+    worktreePath?: string | null;
+    branch?: string | null;
+  };
 </script>
 
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { grokModels } from "$lib/editor-utils";
+  import { grokModels, type AppSettings } from "$lib/editor-utils";
+  import { buildGrokLaunchCommand } from "$lib/settings-runtime";
+  import Terminal from "$lib/Terminal.svelte";
 
   let {
     defaultCwd = null,
+    settings,
     onLaunchAgents = undefined,
   }: {
     defaultCwd?: string | null;
-    onLaunchAgents?: (specs: CanvasAgentLaunchSpec[]) => void | Promise<void>;
+    settings: AppSettings;
+    onLaunchAgents?: (specs: CanvasAgentLaunchSpec[]) => CanvasPreparedAgent[] | void | Promise<CanvasPreparedAgent[] | void>;
   } = $props();
 
   const MIN_ZOOM = 0.25;
@@ -65,6 +74,7 @@
     mission: { title: "Mission", subtitle: "Goal-oriented workflow" },
     file: { title: "File", subtitle: "Linked workspace artifact" },
     note: { title: "Note", subtitle: "Freeform context" },
+    terminal: { title: "Terminal", subtitle: "Live Grok agent" },
   };
 
   const EMPTY_PRESETS: { label: string; nodes: CanvasNodeType[] }[] = [
@@ -128,6 +138,14 @@
   let sharedGoal = $state("Ship a reviewed, production-ready implementation");
   let sharedPrompt = $state("Coordinate through concise handoffs. Keep changes scoped, tested, and easy to review.");
   let isolateWorktrees = $state(false);
+  type LiveTerminalStatus = "starting" | "running" | "error";
+  type LiveTerminalAgent = CanvasPreparedAgent & {
+    nodeId: string;
+    injectToken: number;
+    status: LiveTerminalStatus;
+    error: string;
+  };
+  let liveTerminalAgents = $state<LiveTerminalAgent[]>([]);
   let canvasHydrated = false;
   let canvasPersistTimer: ReturnType<typeof setTimeout> | undefined;
   let agentDrafts = $state([
@@ -160,8 +178,12 @@
     canvasPersistTimer = setTimeout(() => {
       try {
         localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify({
-          nodes,
-          edges,
+          nodes: nodes.filter((node) => node.type !== "terminal"),
+          edges: edges.filter((edge) => {
+            const from = nodes.find((node) => node.id === edge.fromId);
+            const to = nodes.find((node) => node.id === edge.toId);
+            return from?.type !== "terminal" && to?.type !== "terminal";
+          }),
           agentDrafts,
           workspaceDir,
           sharedGoal,
@@ -405,18 +427,26 @@
     }
   }
 
-  function addAgentLayout(specs: CanvasAgentLaunchSpec[]) {
+  function addTerminalLayout(specs: CanvasPreparedAgent[]) {
     pushUndo();
     const center = getViewportCenterWorld();
-    const gapX = 268;
-    const startX = center.x - ((specs.length - 1) * gapX) / 2 - NODE_WIDTH / 2;
+    const terminalWidth = 430;
+    const terminalHeight = 286;
+    const columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(specs.length))));
+    const rows = Math.ceil(specs.length / columns);
+    const gapX = 38;
+    const gapY = 42;
+    const totalWidth = columns * terminalWidth + (columns - 1) * gapX;
+    const totalHeight = rows * terminalHeight + (rows - 1) * gapY;
+    const startX = center.x - totalWidth / 2;
+    const startY = center.y - totalHeight / 2;
     const created = specs.map((spec, index) => ({
-      id: createId("node"),
-      type: "agent" as const,
-      x: startX + index * gapX,
-      y: center.y - NODE_HEIGHT / 2 + (index % 2 ? 28 : -28),
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
+      id: createId("terminal"),
+      type: "terminal" as const,
+      x: startX + (index % columns) * (terminalWidth + gapX),
+      y: startY + Math.floor(index / columns) * (terminalHeight + gapY),
+      width: terminalWidth,
+      height: terminalHeight,
       title: spec.role,
       subtitle: `${grokModels.find((model) => model.id === spec.model)?.label ?? spec.model}${spec.worktreeIsolation ? " · isolated" : ""}`,
     }));
@@ -427,7 +457,61 @@
     }));
     nodes = [...nodes, ...created];
     edges = [...edges, ...createdEdges];
+    liveTerminalAgents = [
+      ...liveTerminalAgents,
+      ...specs.map((spec, index) => ({
+        ...spec,
+        nodeId: created[index].id,
+        injectToken: 1,
+        status: "starting" as const,
+        error: "",
+      })),
+    ];
     selectedIds = new Set(created.map((node) => node.id));
+  }
+
+  function liveTerminalForNode(nodeId: string) {
+    return liveTerminalAgents.find((agent) => agent.nodeId === nodeId) ?? null;
+  }
+
+  function terminalLaunchCommand(agent: LiveTerminalAgent) {
+    return buildGrokLaunchCommand({ ...settings, grokModel: agent.model });
+  }
+
+  function terminalPrompt(agent: LiveTerminalAgent) {
+    return [
+      `ROLE\nYou are the ${agent.role} in a connected Grokden canvas workspace.`,
+      agent.goal ? `GOAL\n${agent.goal}` : "",
+      agent.prompt ? `STARTING CONTEXT\n${agent.prompt}` : "",
+      agent.upstreamRoles.length
+        ? `ORCHESTRATION\nYour upstream collaborators are: ${agent.upstreamRoles.join(", ")}. Read their handoffs and leave a concise handoff for the next connected agent.`
+        : "",
+      agent.worktreeIsolation
+        ? `ISOLATION\nWork only in ${agent.branch ?? "your isolated branch"}. Keep the diff scoped and finish with a short change summary.`
+        : "",
+    ].filter(Boolean).join("\n\n");
+  }
+
+  function setLiveTerminalStatus(nodeId: string, status: LiveTerminalStatus, error = "") {
+    liveTerminalAgents = liveTerminalAgents.map((agent) =>
+      agent.nodeId === nodeId ? { ...agent, status, error } : agent,
+    );
+  }
+
+  function relaunchLiveTerminal(nodeId: string) {
+    liveTerminalAgents = liveTerminalAgents.map((agent) =>
+      agent.nodeId === nodeId
+        ? { ...agent, injectToken: agent.injectToken + 1, status: "starting" as const, error: "" }
+        : agent,
+    );
+  }
+
+  function removeLiveTerminal(nodeId: string) {
+    pushUndo();
+    liveTerminalAgents = liveTerminalAgents.filter((agent) => agent.nodeId !== nodeId);
+    nodes = nodes.filter((node) => node.id !== nodeId);
+    edges = edges.filter((edge) => edge.fromId !== nodeId && edge.toId !== nodeId);
+    selectedIds = new Set([...selectedIds].filter((id) => id !== nodeId));
   }
 
   async function launchAgentWorkspace() {
@@ -453,10 +537,12 @@
     }));
     launcherNotice = isolateWorktrees ? "Preparing isolated branches…" : "Launching connected terminals…";
     launchingAgents = true;
-    addAgentLayout(specs);
     try {
-      await onLaunchAgents?.(specs);
-      launcherNotice = `${specs.length} connected agent${specs.length === 1 ? "" : "s"} launched.`;
+      const result = await onLaunchAgents?.(specs);
+      const prepared = Array.isArray(result) ? result : specs;
+      addTerminalLayout(prepared);
+      launcherNotice = `${prepared.length} live terminal${prepared.length === 1 ? "" : "s"} launched on Canvas.`;
+      showAgentLauncher = false;
     } catch (error) {
       launcherNotice = `Launch failed: ${String(error)}`;
     } finally {
@@ -468,6 +554,7 @@
     if (!selectedIds.size) return;
     pushUndo();
     const removed = selectedIds;
+    liveTerminalAgents = liveTerminalAgents.filter((agent) => !removed.has(agent.nodeId));
     nodes = nodes.filter((n) => !removed.has(n.id));
     edges = edges.filter((e) => !removed.has(e.fromId) && !removed.has(e.toId));
     selectedIds = new Set();
@@ -702,6 +789,7 @@
   function contextDeleteNode() {
     if (!contextMenu) return;
     pushUndo();
+    liveTerminalAgents = liveTerminalAgents.filter((agent) => agent.nodeId !== contextMenu!.nodeId);
     nodes = nodes.filter(n => n.id !== contextMenu!.nodeId);
     edges = edges.filter(e => e.fromId !== contextMenu!.nodeId && e.toId !== contextMenu!.nodeId);
     selectedIds = new Set([...selectedIds].filter(id => id !== contextMenu!.nodeId));
@@ -962,25 +1050,79 @@
 
       <div class="grok-canvas__nodes">
         {#each nodes as node (node.id)}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="grok-canvas__node"
-            class:grok-canvas__node--selected={selectedIds.has(node.id)}
-            class:grok-canvas__node--dragging={draggingNodeId === node.id}
-            style:left="{node.x}px"
-            style:top="{node.y}px"
-            style:width="{node.width}px"
-            style:min-height="{node.height}px"
-            onpointerdown={(e) => onNodePointerDown(e, node)}
-            oncontextmenu={(e) => onNodeContextMenu(e, node)}
-          >
-            <div class="grok-canvas__node-type">
-              <span class="grok-canvas__node-type-dot grok-canvas__node-type-dot--{node.type}"></span>
-              {node.type}
+          {#if node.type === "terminal"}
+            {@const agent = liveTerminalForNode(node.id)}
+            {#if agent}
+              <div
+                class="grok-canvas__node grok-canvas__terminal-node"
+                role="group"
+                aria-label={`${agent.role} terminal`}
+                class:grok-canvas__node--selected={selectedIds.has(node.id)}
+                class:grok-canvas__node--dragging={draggingNodeId === node.id}
+                class:grok-canvas__terminal-node--error={agent.status === "error"}
+                style:left="{node.x}px"
+                style:top="{node.y}px"
+                style:width="{node.width}px"
+                style:height="{node.height}px"
+                oncontextmenu={(e) => onNodeContextMenu(e, node)}
+              >
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <header class="grok-canvas__terminal-head" onpointerdown={(e) => onNodePointerDown(e, node)}>
+                  <span class="grok-canvas__traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="grok-canvas__terminal-glyph" aria-hidden="true">›_</span>
+                  <strong>{agent.role}</strong>
+                  <span class="grok-canvas__terminal-model">{grokModels.find((model) => model.id === agent.model)?.label ?? agent.model}</span>
+                  {#if agent.worktreeIsolation}<span class="grok-canvas__terminal-isolated">isolated</span>{/if}
+                  <span class="grok-canvas__terminal-status grok-canvas__terminal-status--{agent.status}">
+                    {agent.status === "starting" ? "STARTING" : agent.status === "running" ? "LIVE" : "ERROR"}
+                  </span>
+                  <button type="button" title="Relaunch agent" aria-label="Relaunch agent" onclick={(event) => { event.stopPropagation(); relaunchLiveTerminal(node.id); }}>↻</button>
+                  <button type="button" title="Close terminal" aria-label="Close terminal" onclick={(event) => { event.stopPropagation(); removeLiveTerminal(node.id); }}>×</button>
+                </header>
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="grok-canvas__terminal-body" onpointerdown={(event) => event.stopPropagation()}>
+                  <Terminal
+                    {settings}
+                    cwd={agent.worktreePath || agent.cwd}
+                    sessionActive={true}
+                    visible={true}
+                    compact={true}
+                    enableHelper={false}
+                    restartBeforeInject={true}
+                    injectToken={agent.injectToken}
+                    injectCommand={terminalLaunchCommand(agent)}
+                    injectPrompt={terminalPrompt(agent)}
+                    onReady={() => setLiveTerminalStatus(node.id, "running")}
+                    onError={(message) => setLiveTerminalStatus(node.id, "error", message)}
+                  />
+                </div>
+                <footer class="grok-canvas__terminal-foot" title={agent.error || agent.worktreePath || agent.cwd}>
+                  <span>{agent.status === "error" ? agent.error : agent.worktreePath || agent.cwd}</span>
+                  <span>{agent.branch ?? `${node.width} × ${node.height}`}</span>
+                </footer>
+              </div>
+            {/if}
+          {:else}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="grok-canvas__node"
+              class:grok-canvas__node--selected={selectedIds.has(node.id)}
+              class:grok-canvas__node--dragging={draggingNodeId === node.id}
+              style:left="{node.x}px"
+              style:top="{node.y}px"
+              style:width="{node.width}px"
+              style:min-height="{node.height}px"
+              onpointerdown={(e) => onNodePointerDown(e, node)}
+              oncontextmenu={(e) => onNodeContextMenu(e, node)}
+            >
+              <div class="grok-canvas__node-type">
+                <span class="grok-canvas__node-type-dot grok-canvas__node-type-dot--{node.type}"></span>
+                {node.type}
+              </div>
+              <h3 class="grok-canvas__node-title">{node.title}</h3>
+              <p class="grok-canvas__node-sub">{node.subtitle}</p>
             </div>
-            <h3 class="grok-canvas__node-title">{node.title}</h3>
-            <p class="grok-canvas__node-sub">{node.subtitle}</p>
-          </div>
+          {/if}
         {/each}
       </div>
     </div>
@@ -1412,6 +1554,95 @@
   .grok-canvas__launch-primary { height: 32px; padding: 0 13px; border: 1px solid color-mix(in srgb, var(--grok-accent) 48%, var(--grok-border)); border-radius: 8px; background: var(--grok-accent-soft); color: var(--grok-text); font: 600 10px/1 var(--grok-font); cursor: pointer; white-space: nowrap; }
   .grok-canvas__launch-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--grok-accent) 22%, transparent); }
   .grok-canvas__launch-primary:disabled { opacity: 0.55; cursor: wait; }
+
+  .grok-canvas__terminal-node {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: 36px minmax(0, 1fr) 25px;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    border-color: color-mix(in srgb, var(--grok-accent) 44%, var(--grok-border));
+    border-radius: 12px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--grok-surface-2) 92%, transparent), color-mix(in srgb, var(--grok-editor) 97%, transparent));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 18px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px color-mix(in srgb, var(--grok-accent) 7%, transparent);
+    cursor: default;
+    backdrop-filter: blur(18px) saturate(1.12);
+  }
+  .grok-canvas__terminal-node:hover {
+    border-color: color-mix(in srgb, var(--grok-accent) 66%, var(--grok-border-strong));
+  }
+  .grok-canvas__terminal-node--error { border-color: color-mix(in srgb, var(--grok-danger) 58%, var(--grok-border)); }
+  .grok-canvas__terminal-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 0 9px 0 11px;
+    border-bottom: 1px solid var(--grok-border);
+    background: color-mix(in srgb, var(--grok-surface-3) 58%, transparent);
+    cursor: grab;
+    user-select: none;
+    font: 600 10px/1 "JetBrains Mono", var(--grok-font-mono), monospace;
+  }
+  .grok-canvas__node--dragging .grok-canvas__terminal-head { cursor: grabbing; }
+  .grok-canvas__traffic { display: inline-flex; gap: 4px; margin-right: 2px; }
+  .grok-canvas__traffic i { width: 7px; height: 7px; border-radius: 50%; background: #ff605c; box-shadow: 0 0 8px color-mix(in srgb, #ff605c 28%, transparent); }
+  .grok-canvas__traffic i:nth-child(2) { background: #ffbd44; box-shadow: 0 0 8px color-mix(in srgb, #ffbd44 25%, transparent); }
+  .grok-canvas__traffic i:nth-child(3) { background: #00ca4e; box-shadow: 0 0 8px color-mix(in srgb, #00ca4e 25%, transparent); }
+  .grok-canvas__terminal-glyph { color: var(--grok-accent); font-weight: 700; }
+  .grok-canvas__terminal-head strong { min-width: 0; overflow: hidden; color: var(--grok-text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+  .grok-canvas__terminal-model,
+  .grok-canvas__terminal-isolated {
+    max-width: 118px;
+    overflow: hidden;
+    padding: 3px 6px;
+    border: 1px solid var(--grok-border);
+    border-radius: 999px;
+    color: var(--grok-text-muted);
+    background: color-mix(in srgb, var(--grok-surface) 74%, transparent);
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grok-canvas__terminal-isolated { color: var(--grok-accent); }
+  .grok-canvas__terminal-status { margin-left: auto; font-size: 8px; letter-spacing: 0.08em; }
+  .grok-canvas__terminal-status--starting { color: var(--grok-warn); }
+  .grok-canvas__terminal-status--running { color: var(--grok-success); }
+  .grok-canvas__terminal-status--error { color: var(--grok-danger); }
+  .grok-canvas__terminal-head button {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--grok-text-muted);
+    cursor: pointer;
+    font: 500 13px/1 var(--grok-font);
+  }
+  .grok-canvas__terminal-head button:hover { color: var(--grok-text); background: var(--grok-hover); }
+  .grok-canvas__terminal-body { display: flex; min-width: 0; min-height: 0; overflow: hidden; background: color-mix(in srgb, var(--grok-editor) 96%, transparent); }
+  .grok-canvas__terminal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    padding: 0 11px;
+    border-top: 1px solid var(--grok-border-muted);
+    color: var(--grok-text-muted);
+    background: color-mix(in srgb, var(--grok-surface) 72%, transparent);
+    font: 500 8px/1 "JetBrains Mono", var(--grok-font-mono), monospace;
+  }
+  .grok-canvas__terminal-foot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grok-canvas__terminal-foot span:first-child { flex: 1; }
 
   @media (max-width: 700px) {
     .grok-canvas__agent-launcher { right: 14px; width: auto; }

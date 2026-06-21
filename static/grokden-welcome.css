@@ -900,3 +900,10 @@
     transition: none;
   }
 }
+
+.cmdbar__input[readonly] {
+  pointer-events: none;
+  caret-color: transparent;
+  cursor: default;
+  user-select: none;
+}

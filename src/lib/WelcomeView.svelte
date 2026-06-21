@@ -39,8 +39,6 @@
     recentWorkspaces = [],
   }: Props = $props();
 
-  let commandText = $state("");
-  let commandInput = $state<HTMLInputElement | null>(null);
   let selectedAgentPreset = $state<AgentModePreset>("agent-driven");
   let storedWorkspaces = $state<RecentWorkspace[]>([]);
   let showQuickMenu = $state(false);
@@ -86,20 +84,20 @@
     {
       id: "default-dark",
       label: "Premium Grok",
-      subtitle: "Dark & warm gold accents",
+      subtitle: "Obsidian surfaces, crisp neutral accents",
       frame: "#0a0a0e",
       sidebar: "#0e0e12",
       editor: "#08080c",
-      accent: "#c89650",
+      accent: "#e7e7ea",
     },
     {
       id: "high-contrast",
       label: "Midnight",
-      subtitle: "Pure black, crisp cyan",
+      subtitle: "Pure black, precise graphite contrast",
       frame: "#000000",
       sidebar: "#050505",
       editor: "#030303",
-      accent: "#55aadd",
+      accent: "#f2f2f2",
     },
   ];
 
@@ -158,20 +156,6 @@
     recentWorkspaces.length > 0 ? recentWorkspaces : storedWorkspaces,
   );
 
-  function submitCommand() {
-    const trimmed = commandText.trim();
-    if (!trimmed) return;
-    onCommandSubmit(trimmed);
-    commandText = "";
-  }
-
-  function handleCommandKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      submitCommand();
-    }
-  }
-
   function openWorkspace(workspace: RecentWorkspace) {
     onCommandSubmit(`open ${workspace.path}`);
   }
@@ -221,7 +205,6 @@
     } catch (_) {
       starred = false;
     }
-    commandInput?.focus();
   });
 </script>
 
@@ -234,7 +217,7 @@
       <span class="welcome-supergrok-word">SuperGrok</span>
       <span class="welcome-supergrok-badge">HEAVY</span>
       <!-- StarToggle (adapted from Button.svelte sparkle bookmark) -->
-      <div class="star-toggle" title={starred ? 'Unstar workspace' : 'Star this workspace'}>
+      <div class="star-toggle">
         <input
           class="star-toggle__input"
           id="star-fav"
@@ -268,7 +251,7 @@
       <div class="star-toast" role="status">{starMessage}</div>
     {/if}
 
-    <div class="cmdbar cmdbar--pill" role="search">
+    <div class="cmdbar cmdbar--pill" aria-label="Welcome actions">
       <button
         type="button"
         class="cmdbar__plus"
@@ -297,13 +280,13 @@
       {/if}
 
       <input
-        bind:this={commandInput}
         class="cmdbar__input"
         type="text"
         placeholder="How can I help you today?"
-        bind:value={commandText}
-        onkeydown={handleCommandKeydown}
-        aria-label="Command"
+        readonly
+        tabindex="-1"
+        aria-disabled="true"
+        aria-label="Welcome prompt preview"
       />
 
       <div class="cmdbar__right">

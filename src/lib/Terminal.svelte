@@ -25,6 +25,12 @@
   } from "$lib/terminal-image-drop";
   import TerminalHelper from "$lib/TerminalHelper.svelte";
   import {
+    debugControlPreview,
+    makeTerminalDebugId,
+    removeTerminalDebugEntry,
+    terminalDebug,
+  } from "$lib/terminal-debug";
+  import {
     debounce,
     DEFAULT_RESIZE_DEBOUNCE_MS,
     hostSizeChanged,
@@ -48,6 +54,9 @@
     compact = false,
     enableHelper = true,
     onSpawned = undefined,
+    onReady = undefined,
+    onOutput = undefined,
+    onError = undefined,
   }: {
     settings: AppSettings;
     cwd?: string | null;
@@ -61,9 +70,13 @@
     compact?: boolean;
     enableHelper?: boolean;
     onSpawned?: (id: number) => void;
+    onReady?: (id: number) => void;
+    onOutput?: (data: string) => void;
+    onError?: (message: string) => void;
   } = $props();
 
   let hostEl = $state<HTMLDivElement | undefined>();
+  const debugInstanceId = makeTerminalDebugId();
   let term: XTerm | null = null;
   let fitAddon: FitAddon | null = null;
   let terminalId: number | null = null;
@@ -87,12 +100,133 @@
   let imageDropBusy = $state(false);
   let imageDropMessage = $state("Drop image into terminal");
   let imageDragDepth = 0;
+  let outputSerial = 0;
+  let commandInjected = false;
+  let readyReported = false;
+  let startupOutput = "";
+  let readyTimer: ReturnType<typeof setTimeout> | undefined;
+  let debugOutputChunks = 0;
+  let debugOutputBytes = 0;
 
   let bellEnabled = false;
   let suggestions = $derived(
     shouldShowSuggestions(inputBuffer) ? searchCommandSuggestions(inputBuffer) : [],
   );
   let helperVisible = $derived(enableHelper && suggestions.length > 0);
+
+  function debugRect(element: Element | null | undefined) {
+    if (!(element instanceof HTMLElement)) return null;
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      clientWidth: element.clientWidth,
+      clientHeight: element.clientHeight,
+      offsetWidth: element.offsetWidth,
+      offsetHeight: element.offsetHeight,
+      rect: {
+        x: Math.round(rect.x * 100) / 100,
+        y: Math.round(rect.y * 100) / 100,
+        width: Math.round(rect.width * 100) / 100,
+        height: Math.round(rect.height * 100) / 100,
+      },
+      computed: {
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        position: style.position,
+        overflow: style.overflow,
+        color: style.color,
+        backgroundColor: style.backgroundColor,
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        lineHeight: style.lineHeight,
+        transform: style.transform,
+      },
+    };
+  }
+
+  function debugBufferLines(limit = 40): string[] {
+    if (!term) return [];
+    const buffer = term.buffer.active;
+    const start = Math.max(0, buffer.length - limit);
+    const lines: string[] = [];
+    for (let index = start; index < buffer.length; index += 1) {
+      const value = buffer.getLine(index)?.translateToString(true) ?? "";
+      if (value || index >= buffer.length - term.rows) lines.push(`${index}: ${value.slice(0, 260)}`);
+    }
+    return lines;
+  }
+
+  function terminalDebugSnapshot() {
+    const xtermElement = term?.element ?? hostEl?.querySelector(".xterm");
+    const screen = hostEl?.querySelector(".xterm-screen");
+    const rows = hostEl?.querySelector(".xterm-rows");
+    const viewport = hostEl?.querySelector(".xterm-viewport");
+    const textarea = term?.textarea ?? hostEl?.querySelector(".xterm-helper-textarea");
+    return {
+      instanceId: debugInstanceId,
+      terminalId,
+      cwd,
+      visible,
+      sessionActive,
+      mounted,
+      compact,
+      spawnInFlight,
+      spawnGeneration,
+      injectToken,
+      lastInjectToken,
+      pendingInjectToken,
+      injectInFlight,
+      commandInjected,
+      readyReported,
+      initialResizeDone,
+      altScreenActive,
+      pendingFitAfterAlt,
+      outputSerial,
+      outputChunks: debugOutputChunks,
+      outputBytes: debugOutputBytes,
+      lastPtyDims,
+      xterm: term ? {
+        cols: term.cols,
+        rows: term.rows,
+        bufferType: term.buffer.active.type,
+        cursorX: term.buffer.active.cursorX,
+        cursorY: term.buffer.active.cursorY,
+        viewportY: term.buffer.active.viewportY,
+        baseY: term.buffer.active.baseY,
+        bufferLength: term.buffer.active.length,
+        modes: term.modes,
+      } : null,
+      host: debugRect(hostEl),
+      element: debugRect(xtermElement),
+      screen: debugRect(screen),
+      rowsElement: {
+        ...debugRect(rows),
+        childCount: rows?.childElementCount ?? 0,
+        textPreview: rows?.textContent?.slice(0, 1200) ?? "",
+      },
+      viewport: debugRect(viewport),
+      textarea: debugRect(textarea),
+      hostChildCount: hostEl?.childElementCount ?? 0,
+      hostHtmlPreview: hostEl?.innerHTML.slice(0, 2200) ?? "",
+      bufferLines: debugBufferLines(),
+      theme: {
+        id: settings.theme,
+        accent: settings.accent,
+        terminalBg: hostEl ? cssVar(hostEl, "--terminal-bg", "<missing>") : "<no-host>",
+        textDim: hostEl ? cssVar(hostEl, "--text-dim", "<missing>") : "<no-host>",
+      },
+    };
+  }
+
+  function logTerminalDebug(event: string, detail?: unknown, includeSnapshot = false) {
+    terminalDebug(
+      debugInstanceId,
+      event,
+      detail,
+      includeSnapshot ? terminalDebugSnapshot() : undefined,
+    );
+  }
 
   function cssVar(el: HTMLElement, name: string, fallback: string): string {
     return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
@@ -104,6 +238,32 @@
     const glass = cssVar(el, "--glass-editor-bg", "");
     if (glass) return "transparent";
     return cssVar(el, "--editor-bg", cssVar(el, "--bg", "#09090d"));
+  }
+
+  function observeInjectedStartup(id: number, data: string) {
+    if (!commandInjected || readyReported) return;
+    startupOutput = `${startupOutput}${data.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, "")}`.slice(-4000);
+    if (/not authenticated|command not found|not recognized as (?:an internal|the name)|failed to (?:launch|start)|could not start grok/i.test(startupOutput)) {
+      readyReported = true;
+      clearTimeout(readyTimer);
+      onError?.("Grok did not start successfully. Check authentication and the selected model, then relaunch.");
+      return;
+    }
+    clearTimeout(readyTimer);
+    readyTimer = setTimeout(() => {
+      if (terminalId === id && commandInjected && !readyReported) {
+        readyReported = true;
+        onReady?.(id);
+      }
+    }, 480);
+  }
+
+  function displaySafeTerminalChunk(data: string): string {
+    // Grok Build brackets TUI frames with DEC synchronized-output mode. Some
+    // WebView2/xterm combinations keep those frames buffered indefinitely,
+    // producing a live but visually empty terminal. Removing only the batch
+    // markers preserves every cursor, color, alt-screen and input sequence.
+    return data.replace(/\x1b\[\?2026[hl]/g, "");
   }
 
   function buildXtermTheme(el: HTMLElement): ITheme {
@@ -191,15 +351,29 @@
 
   async function fitAndResize(opts: { forceFit?: boolean; forcePty?: boolean } = {}) {
     const { forceFit = false, forcePty = false } = opts;
-    if (!fitAddon || !term || !terminalId || !hostEl) return;
+    if (!fitAddon || !term || !terminalId || !hostEl) {
+      logTerminalDebug("fit:skipped-missing-state", {
+        fitAddon: Boolean(fitAddon),
+        term: Boolean(term),
+        terminalId,
+        host: Boolean(hostEl),
+        forceFit,
+        forcePty,
+      });
+      return;
+    }
 
     const fitVisual = visible;
 
     const { clientWidth, clientHeight } = hostEl;
-    if (clientWidth < 2 || clientHeight < 2) return;
+    if (clientWidth < 2 || clientHeight < 2) {
+      logTerminalDebug("fit:skipped-zero-host", { clientWidth, clientHeight, forceFit, forcePty }, true);
+      return;
+    }
 
     if (shouldDeferFitForAltScreen(altScreenActive)) {
       pendingFitAfterAlt = true;
+      logTerminalDebug("fit:deferred-alt-screen", { clientWidth, clientHeight, forceFit, forcePty });
       return;
     }
 
@@ -217,8 +391,20 @@
     try {
       fitAddon.fit();
       const dims = proposeFitDims(fitAddon);
-      if (!dims) return;
+      logTerminalDebug("fit:proposed", {
+        clientWidth,
+        clientHeight,
+        dims,
+        current: { cols: term.cols, rows: term.rows },
+        forceFit,
+        forcePty,
+      });
+      if (!dims) {
+        logTerminalDebug("fit:invalid-dimensions", undefined, true);
+        return;
+      }
       if (!shouldNotifyPtyResize(lastPtyDims, dims, { altScreenActive }) && !forcePty) {
+        logTerminalDebug("fit:pty-resize-not-needed", { lastPtyDims, dims });
         return;
       }
 
@@ -235,21 +421,33 @@
       lastHostH = clientHeight;
       pendingFitAfterAlt = false;
       initialResizeDone = true;
+      logTerminalDebug("fit:pty-resized", { dims, ticket }, true);
 
       if (fitVisual) term.refresh(0, term.rows - 1);
     } catch (error) {
       console.error("Terminal resize failed:", error);
+      logTerminalDebug("fit:error", { error: String(error) }, true);
     }
   }
 
   function handleAltScreenTransition(chunk: string) {
     const prevAlt = altScreenActive;
+    const previousCarry = altParseCarry;
     const parsed = parseAltScreenChunk(chunk, altScreenActive, altParseCarry);
     altScreenActive = parsed.active;
     altParseCarry = parsed.carry;
 
     if (term) {
       term.options.scrollOnUserInput = !altScreenActive;
+    }
+
+    if (prevAlt !== altScreenActive || previousCarry !== altParseCarry) {
+      logTerminalDebug("output:alt-screen-state", {
+        previous: prevAlt,
+        current: altScreenActive,
+        carry: debugControlPreview(altParseCarry),
+        chunk: debugControlPreview(chunk),
+      }, true);
     }
 
     if (prevAlt && !altScreenActive) {
@@ -272,7 +470,11 @@
   );
 
   async function teardownSession(force = false) {
-    if (!force && settings.terminalPersistSession) return;
+    logTerminalDebug("session:teardown-request", { force, terminalId, persist: settings.terminalPersistSession });
+    if (!force && settings.terminalPersistSession) {
+      logTerminalDebug("session:teardown-skipped-persist");
+      return;
+    }
 
     if (unregisterOutput) {
       unregisterOutput();
@@ -286,8 +488,10 @@
 
     try {
       await closeTerminal({ id });
+      logTerminalDebug("session:closed", { id });
     } catch (error) {
       console.error("Terminal close failed:", error);
+      logTerminalDebug("session:close-error", { id, error: String(error) });
     }
   }
 
@@ -328,14 +532,24 @@
   }
 
   async function spawnSession() {
-    if (!term || !sessionActive || terminalId || spawnInFlight) return;
+    if (!term || !sessionActive || terminalId || spawnInFlight) {
+      logTerminalDebug("spawn:skipped", {
+        term: Boolean(term),
+        sessionActive,
+        terminalId,
+        spawnInFlight,
+      });
+      return;
+    }
 
     spawnInFlight = true;
     const generation = ++spawnGeneration;
     const shell = settings.terminalShellPath.trim() || null;
+    logTerminalDebug("spawn:request", { generation, shell, cwd }, true);
 
     try {
       const id = await spawnTerminal({ shell, cwd });
+      logTerminalDebug("spawn:resolved", { id, generation });
       if (generation !== spawnGeneration || !term || !sessionActive) {
         await closeTerminal({ id }).catch(() => undefined);
         return;
@@ -347,25 +561,63 @@
       lastHostH = 0;
       altScreenActive = false;
       pendingFitAfterAlt = false;
+      outputSerial = 0;
+      commandInjected = false;
+      readyReported = false;
+      startupOutput = "";
+      clearTimeout(readyTimer);
       unregisterOutput = registerTerminalOutput(id, (data) => {
         if (terminalId === id && term) {
+          outputSerial += 1;
+          debugOutputChunks += 1;
+          debugOutputBytes += data.length;
           handleAltScreenTransition(data);
-          term.write(data);
+          const displayChunk = displaySafeTerminalChunk(data);
+          logTerminalDebug("output:chunk", {
+            id,
+            serial: outputSerial,
+            chars: data.length,
+            displayChars: displayChunk.length,
+            strippedSyncMarkers: displayChunk.length !== data.length,
+            preview: debugControlPreview(data),
+          });
+          term.write(displayChunk, () => {
+            if (terminalId === id && term && visible) {
+              term.refresh(0, Math.max(0, term.rows - 1));
+            }
+            logTerminalDebug("output:parsed-and-refreshed", {
+              id,
+              serial: outputSerial,
+              visible,
+            }, true);
+          });
+          onOutput?.(data);
+          if (data.trim()) observeInjectedStartup(id, data);
         }
       });
+      logTerminalDebug("output:handler-registered", { id }, true);
       onSpawned?.(id);
 
-      if (hostEl) await waitForHostLayout(hostEl);
+      if (hostEl) {
+        await waitForHostLayout(hostEl);
+        logTerminalDebug("spawn:host-layout-ready", undefined, true);
+      }
       await fitAndResize({ forceFit: true, forcePty: true });
+      logTerminalDebug("spawn:complete", { id, generation }, true);
     } catch (error) {
       console.error("Terminal spawn failed:", error);
-      term?.writeln("\r\n\x1b[31mFailed to spawn terminal.\x1b[0m");
+      const message = `Failed to spawn terminal: ${String(error)}`;
+      term?.writeln(`\r\n\x1b[31m${message}\x1b[0m`);
+      onError?.(message);
+      logTerminalDebug("spawn:error", { generation, message }, true);
     } finally {
       spawnInFlight = false;
+      logTerminalDebug("spawn:finally", { generation, terminalId }, true);
     }
   }
 
   async function restartSession() {
+    logTerminalDebug("session:restart-request", { terminalId, spawnGeneration }, true);
     spawnGeneration += 1;
     sessionLifecycleGen += 1;
     initialResizeDone = false;
@@ -380,6 +632,7 @@
     pendingFitAfterAlt = false;
     pendingSettingsAfterAlt = false;
     await spawnSession();
+    logTerminalDebug("session:restart-complete", { terminalId, spawnGeneration }, true);
   }
 
   async function applySuggestion(suggestion: CommandSuggestion) {
@@ -405,7 +658,16 @@
   }
 
   function handleTerminalData(data: string) {
-    if (!terminalId || injectInFlight) return;
+    logTerminalDebug("input:xterm-data", {
+      terminalId,
+      injectInFlight,
+      chars: data.length,
+      preview: debugControlPreview(data),
+    });
+    if (!terminalId || injectInFlight) {
+      logTerminalDebug("input:ignored", { terminalId, injectInFlight });
+      return;
+    }
 
     let forward = data;
     if (enableHelper) {
@@ -413,11 +675,22 @@
       inputBuffer = consumed.buffer;
       forward = consumed.forward;
     }
-    if (!forward) return;
+    if (!forward) {
+      logTerminalDebug("input:consumed-by-helper");
+      return;
+    }
 
-    writeTerminal({ id: terminalId, data: forward }).catch((error) => {
-      console.error("Terminal write failed:", error);
-    });
+    const id = terminalId;
+    writeTerminal({ id, data: forward })
+      .then(() => logTerminalDebug("input:write-complete", {
+        id,
+        chars: forward.length,
+        preview: debugControlPreview(forward),
+      }))
+      .catch((error) => {
+        console.error("Terminal write failed:", error);
+        logTerminalDebug("input:write-error", { id, error: String(error) }, true);
+      });
   }
 
   function hasImageLikeDrop(dt: DataTransfer | null): boolean {
@@ -482,14 +755,30 @@
   }
 
   onMount(() => {
-    if (!hostEl) return;
+    if (!hostEl) {
+      logTerminalDebug("component:mount-missing-host");
+      return;
+    }
 
     mounted = true;
+    logTerminalDebug("component:mount", {
+      cwd,
+      visible,
+      sessionActive,
+      compact,
+      injectToken,
+      injectCommandLength: injectCommand?.length ?? 0,
+      injectPromptLength: injectPrompt?.length ?? 0,
+    }, true);
     term = new XTerm(createTerminalOptions(hostEl));
     fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon());
     term.open(hostEl);
+    logTerminalDebug("xterm:opened", {
+      element: Boolean(term.element),
+      textarea: Boolean(term.textarea),
+    }, true);
 
     bellEnabled = settings.terminalBell;
     term.onData((data) => {
@@ -498,6 +787,7 @@
       }
       handleTerminalData(data);
     });
+    logTerminalDebug("xterm:on-data-registered");
 
     syncCopyOnSelect();
 
@@ -517,13 +807,22 @@
       return true;
     });
 
-    resizeObserver = new ResizeObserver(() => {
+    resizeObserver = new ResizeObserver((entries) => {
+      logTerminalDebug("layout:resize-observer", {
+        visible,
+        entries: entries.map((entry) => ({
+          width: Math.round(entry.contentRect.width * 100) / 100,
+          height: Math.round(entry.contentRect.height * 100) / 100,
+        })),
+      });
       if (!visible) return;
       scheduleFitAndResize();
     });
     resizeObserver.observe(hostEl);
+    logTerminalDebug("layout:resize-observer-attached", undefined, true);
 
     if (visible) {
+      logTerminalDebug("spawn:scheduled-from-mount");
       void spawnSession();
     }
 
@@ -597,14 +896,82 @@
 
   async function runInjectedCommand(cmd: string, id: number): Promise<boolean> {
     const data = cmd.endsWith("\r") || cmd.endsWith("\n") ? cmd : `${cmd}\r`;
+    commandInjected = true;
+    logTerminalDebug("inject:command-write-request", {
+      id,
+      chars: data.length,
+      command: debugControlPreview(data, 500),
+    }, true);
     try {
       await writeTerminal({ id, data });
       inputBuffer = "";
+      logTerminalDebug("inject:command-write-complete", { id }, true);
       return true;
     } catch (error) {
+      commandInjected = false;
       console.error("Terminal inject failed:", error);
+      onError?.(`Could not start Grok: ${String(error)}`);
+      logTerminalDebug("inject:command-write-error", { id, error: String(error) }, true);
       return false;
     }
+  }
+
+  async function waitForCommandStartup(
+    id: number,
+    generation: number,
+    serialBeforeCommand: number,
+  ) {
+    const startedAt = Date.now();
+    const minimumWait = Math.max(650, Math.min(promptDelayMs, 3200));
+    const deadline = startedAt + Math.max(8000, promptDelayMs + 5000);
+    let lastSerial = serialBeforeCommand;
+    let lastOutputAt = startedAt;
+    logTerminalDebug("inject:wait-for-startup-begin", {
+      id,
+      generation,
+      serialBeforeCommand,
+      minimumWait,
+      deadlineInMs: deadline - startedAt,
+    }, true);
+
+    while (Date.now() < deadline) {
+      if (!terminalId || terminalId !== id || !sessionActive || generation !== spawnGeneration) {
+        logTerminalDebug("inject:wait-for-startup-cancelled", {
+          id,
+          terminalId,
+          sessionActive,
+          generation,
+          spawnGeneration,
+        }, true);
+        return;
+      }
+      if (outputSerial !== lastSerial) {
+        lastSerial = outputSerial;
+        lastOutputAt = Date.now();
+        logTerminalDebug("inject:startup-output-observed", {
+          id,
+          outputSerial,
+          elapsedMs: Date.now() - startedAt,
+        });
+      }
+      const minimumElapsed = Date.now() - startedAt >= minimumWait;
+      const outputSettled = outputSerial > serialBeforeCommand && Date.now() - lastOutputAt >= 420;
+      if (minimumElapsed && outputSettled) {
+        logTerminalDebug("inject:wait-for-startup-settled", {
+          id,
+          outputSerial,
+          elapsedMs: Date.now() - startedAt,
+        }, true);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    logTerminalDebug("inject:wait-for-startup-timeout", {
+      id,
+      outputSerial,
+      serialBeforeCommand,
+      elapsedMs: Date.now() - startedAt,
+    }, true);
   }
 
   async function runInjectSequence(
@@ -613,10 +980,30 @@
     token: number,
     generation: number,
   ) {
-    if (injectInFlight || token === lastInjectToken) return;
+    logTerminalDebug("inject:sequence-request", {
+      token,
+      lastInjectToken,
+      injectInFlight,
+      generation,
+      spawnGeneration,
+      commandLength: cmd.length,
+      promptLength: prompt?.length ?? 0,
+    }, true);
+    if (injectInFlight || token === lastInjectToken) {
+      logTerminalDebug("inject:sequence-skipped-duplicate", { token, injectInFlight, lastInjectToken });
+      return;
+    }
 
     const id = terminalId;
-    if (!id || !sessionActive || generation !== spawnGeneration) return;
+    if (!id || !sessionActive || generation !== spawnGeneration) {
+      logTerminalDebug("inject:sequence-skipped-invalid-session", {
+        id,
+        sessionActive,
+        generation,
+        spawnGeneration,
+      }, true);
+      return;
+    }
 
     injectInFlight = true;
     try {
@@ -626,22 +1013,41 @@
         await fitAndResize({ forceFit: true, forcePty: true });
         if (!initialResizeDone) await new Promise((r) => setTimeout(r, 50));
       }
+      logTerminalDebug("inject:layout-ready", { id, initialResizeDone }, true);
       await fitAndResize({ forceFit: true, forcePty: false });
+      const serialBeforeCommand = outputSerial;
       if (!(await runInjectedCommand(cmd, id))) return;
 
       const trimmed = prompt?.trim();
       if (trimmed) {
-        await new Promise((resolve) => setTimeout(resolve, promptDelayMs));
+        await waitForCommandStartup(id, generation, serialBeforeCommand);
         if (!terminalId || terminalId !== id || !sessionActive || generation !== spawnGeneration) {
           return;
         }
-        await writeTerminal({ id, data: `${trimmed}\r` });
-        inputBuffer = "";
+        try {
+          logTerminalDebug("inject:prompt-write-request", {
+            id,
+            chars: trimmed.length + 1,
+          }, true);
+          await writeTerminal({ id, data: `${trimmed}\r` });
+          inputBuffer = "";
+          logTerminalDebug("inject:prompt-write-complete", { id }, true);
+        } catch (error) {
+          onError?.(`Grok started, but the initial prompt could not be sent: ${String(error)}`);
+          logTerminalDebug("inject:prompt-write-error", { id, error: String(error) }, true);
+          return;
+        }
       }
 
       lastInjectToken = token;
+      logTerminalDebug("inject:sequence-complete", { id, token }, true);
     } finally {
       injectInFlight = false;
+      logTerminalDebug("inject:sequence-finally", {
+        token,
+        lastInjectToken,
+        pendingInjectToken,
+      }, true);
       if (pendingInjectToken > lastInjectToken) {
         const next = pendingInjectToken;
         pendingInjectToken = 0;
@@ -658,9 +1064,20 @@
     const cmd = untrack(() => injectCommand?.trim());
     const prompt = untrack(() => injectPrompt);
     const restart = restartBeforeInject;
+    logTerminalDebug("inject:effect-observed", {
+      token,
+      lastInjectToken,
+      hasCommand: Boolean(cmd),
+      promptLength: prompt?.length ?? 0,
+      sessionActive,
+      terminalId,
+      injectInFlight,
+      restart,
+    });
     if (!token || token === lastInjectToken || !cmd || !sessionActive) return;
     if (injectInFlight) {
       pendingInjectToken = Math.max(pendingInjectToken, token);
+      logTerminalDebug("inject:effect-queued", { token, pendingInjectToken });
       return;
     }
 
@@ -674,18 +1091,24 @@
     };
 
     if (terminalId) {
+      logTerminalDebug("inject:effect-running-now", { token, terminalId });
       void run();
       return;
     }
 
     const generation = spawnGeneration;
+    logTerminalDebug("inject:effect-waiting-for-session", { token, generation }, true);
     const interval = setInterval(() => {
       if (terminalId && spawnGeneration === generation) {
         clearInterval(interval);
+        logTerminalDebug("inject:session-became-ready", { token, terminalId, generation }, true);
         void run();
       }
     }, 50);
-    const timeout = setTimeout(() => clearInterval(interval), 15000);
+    const timeout = setTimeout(() => {
+      clearInterval(interval);
+      logTerminalDebug("inject:session-wait-timeout", { token, generation }, true);
+    }, 15000);
 
     return () => {
       clearInterval(interval);
@@ -723,8 +1146,10 @@
   });
 
   onDestroy(() => {
+    removeTerminalDebugEntry(debugInstanceId, terminalDebugSnapshot());
     spawnGeneration += 1;
     resizeObserver?.disconnect();
+    clearTimeout(readyTimer);
     if (hostEl) hostEl.onmouseup = null;
     void teardownSession(true);
     term?.dispose();
@@ -735,6 +1160,10 @@
 
 <div
   class="terminal-wrap"
+  data-terminal-debug-id={debugInstanceId}
+  data-terminal-debug="enabled"
+  role="application"
+  aria-label="Integrated terminal"
   class:compact
   class:image-drop-active={imageDropActive || imageDropBusy}
   ondragenter={handleImageDragEnter}
@@ -829,6 +1258,22 @@
     height: 100%;
     width: 100%;
     padding: 0;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  :global(.terminal-host .xterm-screen) {
+    z-index: 1;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  :global(.terminal-host .xterm-rows) {
+    position: relative;
+    z-index: 2;
+    opacity: 1 !important;
+    visibility: visible !important;
+    color: var(--text-dim, #c8c8d2) !important;
   }
 
   :global(.terminal-host .xterm-viewport) {

@@ -150,8 +150,6 @@
   import { attachParser, detachParser, startActivitySession } from "$lib/agent-activity/activity-bridge";
   import { getActiveActivitySession, isSessionLive } from "$lib/agent-activity/activity-store";
   import {
-    createAgentId,
-    createEmptyGoal,
     type MissionGoal,
     type ParallelAgent,
   } from "$lib/agent-grid";
@@ -174,7 +172,7 @@
     type RecentWorkspace,
     type WelcomeThemeId,
   } from "$lib/WelcomeView.svelte";
-  import Canvas, { type CanvasAgentLaunchSpec } from "$lib/Canvas.svelte";
+  import Canvas, { type CanvasAgentLaunchSpec, type CanvasPreparedAgent } from "$lib/Canvas.svelte";
   import MemoryGalaxy from "$lib/MemoryGalaxy.svelte";
 
   const quickOpenModLabel =
@@ -249,6 +247,9 @@
   let userSidebarOpen = $state(false);
   let userSecondaryOpen = $state(initialSecondarySidebarOpen(settings));
   let userTerminalOpen = $state(settings.showTerminalOnStart);
+  let terminalMounted = $state(settings.showTerminalOnStart || settings.terminalPersistSession);
+  let terminalUnmountTimer: ReturnType<typeof setTimeout> | undefined;
+  let terminalMotionGeneration = 0;
   const NAV_RAIL_EXPANDED_W = 248;
   const NAV_RAIL_COLLAPSED_W = 56;
   const SIDEBAR_COLLAPSED_KEY = "Grokden.sidebar.collapsed";
@@ -392,7 +393,7 @@
 
   $effect(() => {
     if (settings.showTerminalOnStart !== showTerminalOnStartPrev) {
-      userTerminalOpen = settings.showTerminalOnStart;
+      setUserTerminalOpen(settings.showTerminalOnStart);
       showTerminalOnStartPrev = settings.showTerminalOnStart;
       scheduleLayoutReconcile(runLayoutReconcile);
     }
@@ -613,6 +614,17 @@
   }
 
   function setUserTerminalOpen(open: boolean) {
+    const motionGeneration = ++terminalMotionGeneration;
+    clearTimeout(terminalUnmountTimer);
+    if (open && !terminalMounted) {
+      terminalMounted = true;
+      userTerminalOpen = false;
+      terminalOpen = false;
+      requestAnimationFrame(() => {
+        if (motionGeneration === terminalMotionGeneration) setUserTerminalOpen(true);
+      });
+      return;
+    }
     userTerminalOpen = open;
     layoutConstraint = {
       ...layoutConstraint,
@@ -621,6 +633,11 @@
     scheduleLayoutReconcile(runLayoutReconcile);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("grokden:layout-change"));
+    }
+    if (!open && !settings.terminalPersistSession) {
+      terminalUnmountTimer = setTimeout(() => {
+        if (!userTerminalOpen && motionGeneration === terminalMotionGeneration) terminalMounted = false;
+      }, 360);
     }
   }
 
@@ -1494,25 +1511,19 @@
     setUserSidebarOpen(false);
   }
 
-  async function launchCanvasAgentWorkspace(specs: CanvasAgentLaunchSpec[]) {
+  async function launchCanvasAgentWorkspace(specs: CanvasAgentLaunchSpec[]): Promise<CanvasPreparedAgent[]> {
     if (folderRestricted) {
       restrictedFeatureNotice("Canvas agents");
       throw new Error("Trust the current folder before launching agents.");
     }
-    if (!specs.length) return;
+    if (!specs.length) return [];
     if (grokCliAvailable === false) {
       settingsNotice = "Install Grok CLI before launching the canvas agent workspace.";
       throw new Error("Grok CLI is not installed.");
     }
 
-    const prepared: ParallelAgent[] = [];
-    const goals: MissionGoal[] = [];
+    const prepared: CanvasPreparedAgent[] = [];
     for (const spec of specs) {
-      const goal = createEmptyGoal({
-        title: spec.goal || `${spec.role} mission`,
-        notes: spec.prompt,
-        category: "Canvas orchestration",
-      });
       let worktreePath: string | null = null;
       let branch: string | null = null;
       if (spec.worktreeIsolation) {
@@ -1523,32 +1534,13 @@
           slug: spec.id,
         });
       }
-      goals.push(goal);
       prepared.push({
-        id: createAgentId(),
-        label: spec.role,
-        role: spec.role,
-        model: spec.model,
-        cwd: spec.cwd,
-        prompt: spec.prompt,
-        goalId: goal.id,
-        injectToken: 1,
-        status: "launching",
-        worktreeIsolation: spec.worktreeIsolation,
+        ...spec,
         worktreePath,
         branch,
-        upstreamRoles: spec.upstreamRoles,
       });
     }
-
-    missionGoals = [...missionGoals, ...goals];
-    parallelAgents = prepared;
-    agentSwarmOpen = true;
-    view = "agents";
-    blurActiveTerminal();
-    setUserSidebarOpen(false);
-    setUserSecondaryOpen(true);
-    secondaryPanelTab = "activity";
+    return prepared;
   }
 
   function closeCanvasView() {
@@ -1703,7 +1695,10 @@
           folderPath = saved.folderPath;
           await mountWorkspace(saved.folderPath, workspaceExcludePatterns(settings));
           selectedFolderPath = saved.folderPath;
-          if (folderRestricted) userTerminalOpen = false;
+          if (folderRestricted) {
+            userTerminalOpen = false;
+            terminalMounted = settings.terminalPersistSession;
+          }
         } catch (mountError) {
           folderPath = previousFolderPath;
           selectedFolderPath = previousSelectedFolderPath;
@@ -1736,6 +1731,7 @@
         ? false
         : resolveRestoredTerminalOpen(settings, resolveSavedTerminalOpen(saved));
       settings = applyRestoredTerminalSettings(settings, saved);
+      terminalMounted = userTerminalOpen || settings.terminalPersistSession;
       if (saved.secondarySidebarOpen !== undefined) {
         userSecondaryOpen = saved.secondarySidebarOpen;
       } else {
@@ -1832,6 +1828,7 @@
     unbindViewportSync?.();
     clearTimeout(autoSaveTimer);
     clearTimeout(sessionPersistTimer);
+    clearTimeout(terminalUnmountTimer);
     if (gitFetchTimer) clearInterval(gitFetchTimer);
     grokActivityDetach?.();
   });
@@ -2375,7 +2372,7 @@
           in:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
           out:fade={settings.enableAnimations ? fadeFast : { duration: 0 }}
         >
-          <Canvas defaultCwd={folderPath} onLaunchAgents={launchCanvasAgentWorkspace} />
+          <Canvas {settings} defaultCwd={folderPath} onLaunchAgents={launchCanvasAgentWorkspace} />
         </div>
       {:else if view === "memory"}
         <div
@@ -2604,7 +2601,7 @@
     {/if}
     </div>
 
-    {#if userTerminalOpen || settings.terminalPersistSession}
+    {#if terminalMounted || settings.terminalPersistSession}
       <footer
         class="terminal"
         class:panel-side={settings.panelDefaultLocation !== "bottom"}
@@ -4064,8 +4061,11 @@ This is a very long debug log line that demonstrates whether the debug console w
     overflow: hidden;
   }
 
-  .ide:not(.no-animations) .terminal:not(.panel-hidden) {
-    transition: height 0.2s ease, width 0.2s ease;
+  .ide:not(.no-animations) .terminal {
+    transition:
+      height 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 260ms ease;
   }
 
   .workspace-body.terminal-docked-side.panel-left {
@@ -4595,7 +4595,21 @@ This is a very long debug log line that demonstrates whether the debug console w
   }
 
   .terminal.panel-hidden {
-    display: none !important;
+    display: flex !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    height: 0 !important;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    border-color: transparent;
+  }
+
+  .terminal.panel-hidden.panel-side {
+    min-width: 0 !important;
+    max-width: 0 !important;
+    width: 0 !important;
+    height: 100% !important;
   }
 
   .zen-hidden { display: none !important; }
