@@ -251,17 +251,17 @@ fn spawn_reader_thread(
         let mut buffer = [0u8; READ_BUFFER_SIZE];
         let mut decoder = Utf8StreamDecoder::new();
         let mut chunk_index: u64 = 0;
-        let mut total_bytes: u64 = 0;
+        let mut _total_bytes: u64 = 0;
 
         while alive.load(Ordering::Relaxed) {
             match reader.read(&mut buffer) {
                 Ok(0) => {
-                    pty_debug!("reader eof id={id} chunks={chunk_index} bytes={total_bytes}");
+                    pty_debug!("reader eof id={id} chunks={chunk_index} bytes={_total_bytes}");
                     break;
                 }
                 Ok(count) => {
                     chunk_index += 1;
-                    total_bytes += count as u64;
+                    _total_bytes += count as u64;
                     let data = decoder.push(&buffer[..count]);
                     if should_debug_stream_chunk(chunk_index, data.len()) {
                         pty_debug!(
@@ -278,8 +278,8 @@ fn spawn_reader_thread(
                         }
                     }
                 }
-                Err(error) => {
-                    pty_debug!("reader error id={id} error={error}");
+                Err(_error) => {
+                    pty_debug!("reader error id={id} error={_error}");
                     break;
                 }
             }
@@ -433,10 +433,12 @@ pub fn terminal_spawn(
         }
         match app_handle.emit("terminal-output", TerminalOutputEvent { id, data }) {
             Ok(()) if should_log => {
-                pty_debug!("emit complete id={id} index={index} chars={chars}")
+                pty_debug!("emit complete id={id} index={index} chars={chars}");
             }
             Ok(()) => {}
-            Err(error) => pty_debug!("emit error id={id} chars={chars} error={error}"),
+            Err(error) => {
+                pty_debug!("emit error id={id} chars={chars} error={error}");
+            }
         }
     });
     spawn_terminal_session(shell, None, cwd, state.inner(), Some(on_output))
