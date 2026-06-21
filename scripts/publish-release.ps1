@@ -80,15 +80,15 @@ $nsisHash = Get-Sha256 $Nsis
 $msiHash = Get-Sha256 $Msi
 
 $releaseNotes = @"
-Grokden $version — Windows desktop workspace for Grok CLI.
+Grokden $version - Windows desktop workspace for Grok CLI.
 
 ## What's new
 
-- **Terminal reliability** — improved PTY output delivery, startup detection, and resize handling
-- **Terminal debug tooling** — `window.__GROKDEN_TERMINAL_DEBUG__` registry for diagnosing output issues
-- **Canvas & Memory Galaxy** — expanded canvas mode and cosmic memory visualization polish
-- **Theme refinements** — updated palette tokens for Premium Grok, Midnight, and dark themes
-- **Welcome & layout** — smoother panel transitions and refreshed welcome experience
+- **Terminal reliability** - improved PTY output delivery, startup detection, and resize handling
+- **Terminal debug tooling** - `window.__GROKDEN_TERMINAL_DEBUG__` registry for diagnosing output issues
+- **Canvas & Memory Galaxy** - expanded canvas mode and cosmic memory visualization polish
+- **Theme refinements** - updated palette tokens for Premium Grok, Midnight, and dark themes
+- **Welcome & layout** - smoother panel transitions and refreshed welcome experience
 - Signed in-app auto-updater (NSIS), parallel agents, git worktree bridge
 
 ## Requirements
